@@ -82,10 +82,46 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "port-manager.filter",
+        "title": "Filter Ports…",
+        "category": "Port Manager",
+        "icon": "$(search)"
+      },
+      {
+        "command": "port-manager.clearFilter",
+        "title": "Clear Filter",
+        "category": "Port Manager",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "port-manager.showRunningOnly",
+        "title": "Show Running Only",
+        "category": "Port Manager",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "port-manager.showAllPorts",
+        "title": "Show All Ports",
+        "category": "Port Manager",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "port-manager.sort",
+        "title": "Sort Ports…",
+        "category": "Port Manager",
+        "icon": "$(sort-precedence)"
+      },
+      {
         "command": "port-manager.kill",
         "title": "Kill Process",
         "category": "Port Manager",
-        "icon": "$(close)"
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "port-manager.rename",
+        "title": "Rename…",
+        "category": "Port Manager",
+        "icon": "$(edit)"
       },
       {
         "command": "port-manager.killByPort",
@@ -107,27 +143,57 @@
         "command": "port-manager.openInBrowser",
         "title": "Open in Browser",
         "category": "Port Manager",
-        "icon": "$(globe)"
+        "icon": "$(link-external)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "port-manager.filter",
+          "when": "view == port-manager.ports",
+          "group": "navigation@1"
+        },
+        {
+          "command": "port-manager.showRunningOnly",
+          "when": "view == port-manager.ports && !portManager.runningOnly",
+          "group": "navigation@2"
+        },
+        {
+          "command": "port-manager.showAllPorts",
+          "when": "view == port-manager.ports && portManager.runningOnly",
+          "group": "navigation@2"
+        },
+        {
+          "command": "port-manager.sort",
+          "when": "view == port-manager.ports",
+          "group": "navigation@3"
+        },
+        {
+          "command": "port-manager.clearFilter",
+          "when": "view == port-manager.ports && portManager.filterActive",
+          "group": "navigation@4"
+        },
+        {
           "command": "port-manager.refresh",
           "when": "view == port-manager.ports",
-          "group": "navigation"
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
         {
-          "command": "port-manager.openInBrowser",
+          "command": "port-manager.rename",
           "when": "view == port-manager.ports",
           "group": "inline@1"
         },
         {
+          "command": "port-manager.openInBrowser",
+          "when": "view == port-manager.ports",
+          "group": "inline@2"
+        },
+        {
           "command": "port-manager.kill",
           "when": "view == port-manager.ports && viewItem == port",
-          "group": "inline@2"
+          "group": "inline@3"
         },
         {
           "command": "port-manager.openInBrowser",
@@ -148,6 +214,11 @@
           "command": "port-manager.kill",
           "when": "view == port-manager.ports && viewItem == port",
           "group": "3_kill@1"
+        },
+        {
+          "command": "port-manager.rename",
+          "when": "view == port-manager.ports",
+          "group": "2_edit@1"
         }
       ],
       "commandPalette": [
@@ -166,6 +237,14 @@
         {
           "command": "port-manager.openInBrowser",
           "when": "false"
+        },
+        {
+          "command": "port-manager.rename",
+          "when": "false"
+        },
+        {
+          "command": "port-manager.clearFilter",
+          "when": "portManager.filterActive"
         }
       ]
     }

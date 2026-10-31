@@ -1,6 +1,7 @@
 import { PortsErrorKind } from '../service/port-errors';
 import { PortInfo, UNKNOWN_LABEL } from '../port-types';
 import { PortsState } from '../service/ports-service';
+import { scopePorts } from './port-list-model';
 
 const SEPARATOR = ' · ';
 
@@ -39,13 +40,14 @@ function asCode(text: string, block: boolean): string {
 }
 
 /** Markdown for the hover tooltip, including the full command and bind address. */
-export function buildPortTooltip(info: PortInfo, protection?: string): string {
+export function buildPortTooltip(info: PortInfo, protection?: string, label?: string): string {
 	const process =
 		info.pid === undefined
 			? 'Process: hidden (it probably belongs to another user)'
 			: `Process: ${asCode(`${info.processName} (PID ${info.pid})`, false)}`;
 	const sections = [
 		`**Port ${info.port}** (${info.protocol})`,
+		label ? `Name: ${asCode(label, false)}` : undefined,
 		`Address: ${asCode(info.address, false)}`,
 		process,
 		info.user === UNKNOWN_LABEL ? undefined : `User: ${asCode(info.user, false)}`,
@@ -64,16 +66,38 @@ export interface StatusBarView {
 }
 
 /** The status bar shows exactly the rows the tree shows, so the two cannot disagree. */
-export function describeStatusBar(state: PortsState): StatusBarView {
+export function describeStatusBar(state: PortsState, runningOnly = false): StatusBarView {
 	if (!state.loaded) {
 		return { text: '$(plug) …', tooltip: SCANNING_MESSAGE, warning: false };
 	}
-	const count = state.ports.length;
-	const summary = `${count} listening ${count === 1 ? 'port' : 'ports'}. Click to open Port Manager.`;
+	const count = scopePorts(state.ports, runningOnly).length;
+	const scope = runningOnly ? ' (running only)' : '';
+	const summary = `${count} listening ${count === 1 ? 'port' : 'ports'}${scope}. Click to open Port Manager.`;
 	if (state.error) {
 		return { text: `$(plug) ${count}`, tooltip: `${ERROR_HEADLINE[state.error.kind]} ${state.error.message}\n${summary}`, warning: true };
 	}
 	return { text: `$(plug) ${count}`, tooltip: summary, warning: false };
+}
+
+export interface ListCounts {
+	/** Ports in scope: all of them, or only the running ones. */
+	inScope: number;
+	/** In scope and matching the search. */
+	shown: number;
+	/** Left out by "running only". */
+	hidden: number;
+	query: string;
+}
+
+/** What to say above the rows: why they are missing, or the loading, empty and error text. */
+export function describeListMessage(state: PortsState, { inScope, shown, hidden, query }: ListCounts): string | undefined {
+	if (inScope === 0 && hidden > 0) {
+		return `Nothing running that Port Manager can identify. ${hidden} ${hidden === 1 ? 'port has' : 'ports have'} a hidden process and ${hidden === 1 ? 'is' : 'are'} not shown.`;
+	}
+	if (inScope > 0 && shown === 0) {
+		return `No ports match “${query.trim()}”.`;
+	}
+	return describeViewMessage(state);
 }
 
 /** The text shown above the tree for the loading, empty and error states; undefined when there is nothing to say. */

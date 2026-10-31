@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import {
 	buildPortTooltip,
+	describeListMessage,
 	describeStatusBar,
 	describeViewMessage,
 	EMPTY_MESSAGE,
@@ -58,6 +59,11 @@ suite('buildPortTooltip', () => {
 		assert.doesNotMatch(tooltip, /User:/);
 	});
 
+	test('shows the name you gave the port', () => {
+		assert.match(buildPortTooltip(port(), undefined, 'frontend'), /Name: ` frontend `/);
+		assert.doesNotMatch(buildPortTooltip(port()), /Name:/);
+	});
+
 	test('says why a port is protected', () => {
 		const tooltip = buildPortTooltip(port(), 'port 3000 is listed in portManager.protectedPorts');
 		assert.match(tooltip, /\*\*Protected:\*\* port 3000 is listed in portManager\.protectedPorts\./);
@@ -110,6 +116,41 @@ suite('describeViewMessage', () => {
 	});
 });
 
+suite('describeListMessage', () => {
+	const loaded = (ports: PortInfo[] = [port()]): PortsState => ({ ports, loaded: true, error: undefined });
+	const counts = (overrides: Partial<{ inScope: number; shown: number; hidden: number; query: string }> = {}) => ({
+		inScope: 1,
+		shown: 1,
+		hidden: 0,
+		query: '',
+		...overrides,
+	});
+
+	test('says nothing when the list speaks for itself', () => {
+		assert.strictEqual(describeListMessage(loaded(), counts()), undefined);
+	});
+
+	test('explains an empty list when running only hides every row', () => {
+		const message = describeListMessage(loaded([hidden]), counts({ inScope: 0, shown: 0, hidden: 1 }));
+		assert.match(message ?? '', /Nothing running that Port Manager can identify\. 1 port has a hidden process and is not shown\./);
+		assert.match(describeListMessage(loaded([hidden, hidden]), counts({ inScope: 0, shown: 0, hidden: 2 })) ?? '', /2 ports have a hidden process and are not shown/);
+	});
+
+	test('says nothing matches the search, with the search text trimmed', () => {
+		assert.strictEqual(describeListMessage(loaded(), counts({ shown: 0, query: '  zzz ' })), 'No ports match “zzz”.');
+	});
+
+	test('falls back to the empty and error messages when there is nothing hidden', () => {
+		assert.strictEqual(describeListMessage(loaded([]), counts({ inScope: 0, shown: 0 })), EMPTY_MESSAGE);
+		assert.strictEqual(describeListMessage({ ports: [], loaded: false, error: undefined }, counts({ inScope: 0, shown: 0 })), SCANNING_MESSAGE);
+	});
+
+	test('shows a loading error even while rows are hidden by the search', () => {
+		const failing: PortsState = { ports: [port()], loaded: true, error: { kind: 'timeout', message: 'ss did not finish.' } };
+		assert.match(describeListMessage(failing, counts()) ?? '', /^Timed out\./);
+	});
+});
+
 suite('describeStatusBar', () => {
 	const state = (overrides: Partial<PortsState> = {}): PortsState => ({
 		ports: [port(), port({ port: 4000 })],
@@ -141,6 +182,14 @@ suite('describeStatusBar', () => {
 		assert.strictEqual(view.text, '$(plug) 2');
 		assert.strictEqual(view.warning, true);
 		assert.match(view.tooltip, /^Timed out\. ss did not finish\.\n2 listening ports/);
+	});
+
+	test('with running only on, counts only the rows the list shows and says so', () => {
+		const withHidden = state({ ports: [port(), port({ port: 1 }), hidden] });
+		assert.strictEqual(describeStatusBar(withHidden, false).text, '$(plug) 3');
+		const view = describeStatusBar(withHidden, true);
+		assert.strictEqual(view.text, '$(plug) 2');
+		assert.match(view.tooltip, /^2 listening ports \(running only\)\./);
 	});
 
 	test('always counts the same rows the tree shows', () => {

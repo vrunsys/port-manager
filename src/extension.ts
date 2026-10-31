@@ -8,6 +8,8 @@ import { registerPortsView } from './features/ports/view/register-ports-view';
 import { registerStatusBar } from './features/ports/view/register-status-bar';
 import { UnsupportedAdapter } from './features/ports/platform/unsupported-adapter';
 import { VscodeSettings } from './features/ports/settings/vscode-settings';
+import { LabelStore } from './features/ports/view/port-labels';
+import { ViewOptions } from './features/ports/view/view-options';
 
 function createAdapter(): PlatformAdapter {
 	try {
@@ -21,13 +23,15 @@ export function activate(context: vscode.ExtensionContext) {
 	const settings = new VscodeSettings();
 	const service = new PortsService(createAdapter(), { intervalMs: settings.get().refreshIntervalMs });
 	const demand = new PollingDemand(service);
+	const labels = new LabelStore(context.globalState);
+	const options = new ViewOptions(context.globalState);
 	context.subscriptions.push(
 		settings,
 		{ dispose: () => service.dispose() },
 		settings.onDidChange(current => service.setIntervalMs(current.refreshIntervalMs)),
-		registerPortsView(service, demand, settings),
-		registerStatusBar(service, demand, settings),
-		registerPortActions(service, settings),
+		registerPortsView(service, demand, settings, labels, options),
+		registerStatusBar(service, demand, settings, options),
+		registerPortActions(service, settings, labels),
 	);
 }
 

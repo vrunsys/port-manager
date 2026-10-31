@@ -8,15 +8,15 @@ import {
 	SETTING,
 	SETTINGS_SECTION,
 } from '../features/ports/settings/port-settings';
-import { ITEM_COMMAND, REFRESH_COMMAND } from '../features/ports/view/view-constants';
+import { FILTER_ACTIVE_CONTEXT, ITEM_COMMAND, REFRESH_COMMAND, RUNNING_ONLY_CONTEXT, VIEW_COMMAND } from '../features/ports/view/view-constants';
 
-const COMMAND_IDS = [REFRESH_COMMAND, ...Object.values(ITEM_COMMAND)];
+const COMMAND_IDS = [REFRESH_COMMAND, ...Object.values(VIEW_COMMAND), ...Object.values(ITEM_COMMAND)];
 
 interface Manifest {
 	extensionKind?: string[];
 	contributes: {
 		commands: Array<{ command: string }>;
-		menus: Record<string, Array<{ command: string }>>;
+		menus: Record<string, Array<{ command: string; when?: string; group?: string }>>;
 		configuration: { properties: Record<string, { default: unknown; minimum?: number; maximum?: number }> };
 	};
 }
@@ -39,6 +39,30 @@ suite('package.json manifest', () => {
 				assert.ok(declared.includes(command), `${menu} refers to undeclared ${command}`);
 			}
 		}
+	});
+
+	test('shows the clear-search button only while a search is active', () => {
+		const menus = manifest.contributes.menus;
+		const inTitleBar = menus['view/title'].find(entry => entry.command === VIEW_COMMAND.clearFilter);
+		assert.match(inTitleBar?.when ?? '', new RegExp(FILTER_ACTIVE_CONTEXT.replace('.', '\\.')));
+	});
+
+	test('offers "show running only" and "show all" in the same slot, one at a time', () => {
+		const titleBar = manifest.contributes.menus['view/title'];
+		const on = titleBar.find(entry => entry.command === VIEW_COMMAND.showRunningOnly);
+		const off = titleBar.find(entry => entry.command === VIEW_COMMAND.showAllPorts);
+		assert.strictEqual(on?.group, off?.group);
+		assert.match(on?.when ?? '', new RegExp(`!${RUNNING_ONLY_CONTEXT.replace('.', '\\.')}`));
+		assert.doesNotMatch(off?.when ?? '', /!/);
+		assert.match(off?.when ?? '', new RegExp(RUNNING_ONLY_CONTEXT.replace('.', '\\.')));
+	});
+
+	test('puts rename, open and stop on every row as inline buttons, in that order', () => {
+		const inline = manifest.contributes.menus['view/item/context']
+			.filter(entry => entry.group?.startsWith('inline@'))
+			.sort((a, b) => a.group!.localeCompare(b.group!))
+			.map(entry => entry.command);
+		assert.deepStrictEqual(inline, [ITEM_COMMAND.rename, ITEM_COMMAND.openInBrowser, ITEM_COMMAND.kill]);
 	});
 
 	test('contributes exactly the settings the code reads, with the defaults the code assumes', () => {

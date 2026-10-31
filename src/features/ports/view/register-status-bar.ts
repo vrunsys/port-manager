@@ -4,6 +4,7 @@ import { PollingDemand } from '../service/polling-demand';
 import { SettingsSource } from '../settings/port-settings';
 import { PortsService } from '../service/ports-service';
 import { FOCUS_VIEW_COMMAND } from './view-constants';
+import { ViewOptions } from './view-options';
 
 const STATUS_BAR_ID = 'port-manager.status';
 const STATUS_BAR_PRIORITY = 100;
@@ -14,13 +15,14 @@ export function registerStatusBar(
 	service: PortsService,
 	demand: PollingDemand,
 	settings: Pick<SettingsSource, 'get' | 'onDidChange'>,
+	options: ViewOptions,
 ): vscode.Disposable {
 	const item = vscode.window.createStatusBarItem(STATUS_BAR_ID, vscode.StatusBarAlignment.Left, STATUS_BAR_PRIORITY);
 	item.name = 'Port Manager';
 	item.command = FOCUS_VIEW_COMMAND;
 
 	const render = () => {
-		const view = describeStatusBar(service.state);
+		const view = describeStatusBar(service.state, options.runningOnly);
 		item.text = view.text;
 		item.tooltip = view.tooltip;
 		item.backgroundColor = view.warning ? WARNING_BACKGROUND : undefined;
@@ -39,5 +41,6 @@ export function registerStatusBar(
 	};
 	applySetting();
 
-	return vscode.Disposable.from(item, service.onDidChange(render), settings.onDidChange(applySetting));
+	// "Running only" changes which rows the list shows, and the count must keep matching it.
+	return vscode.Disposable.from(item, service.onDidChange(render), options.onDidChange(render), settings.onDidChange(applySetting));
 }

@@ -4,11 +4,14 @@ import { isOwnedByAnotherUser, whyNotKillable } from '../kill/kill-policy';
 import { DEFAULT_SETTINGS, SettingsSource } from '../settings/port-settings';
 import { KillResult, PortInfo } from '../port-types';
 import { PortsState } from '../service/ports-service';
+import { LabelWriter, normalizeLabel } from '../view/port-labels';
 
 /** Everything the actions need from the editor, so the logic can be tested without VS Code. */
 export interface PortActionsUi {
 	/** Resolves true only if the user picked the action button. */
 	confirm(message: string, detail: string | undefined, actionLabel: string): Promise<boolean>;
+	/** The name typed for a port: undefined if cancelled, an empty string to remove the name. */
+	promptLabel(port: number, current: string | undefined): Promise<string | undefined>;
 	/** Resolves undefined if the user dismissed the picker. */
 	pickPort(ports: readonly PortInfo[]): Promise<PortInfo | undefined>;
 	showStatus(text: string): void;
@@ -33,6 +36,7 @@ export interface PortActionsService extends PortKiller {
 export interface PortActions {
 	kill(info: PortInfo): Promise<void>;
 	killByPort(): Promise<void>;
+	rename(info: PortInfo): Promise<void>;
 	copyPort(info: PortInfo): Promise<void>;
 	copyPid(info: PortInfo): Promise<void>;
 	openInBrowser(info: PortInfo): Promise<void>;
@@ -91,6 +95,7 @@ export function createPortActions(
 	ui: PortActionsUi,
 	settings: Pick<SettingsSource, 'get'> = { get: () => DEFAULT_SETTINGS },
 	environment: ActionEnvironment = {},
+	labels: LabelWriter = { get: () => undefined, set: async () => {} },
 ): PortActions {
 	const platform = environment.platform ?? process.platform;
 	/** Turns an unexpected exception into a readable message instead of a raw command failure. */
@@ -115,12 +120,13 @@ export function createPortActions(
 				return;
 			}
 			const pid = info.pid;
+			const name = labels.get(info.port);
 			// Another user's process is always confirmed, even when confirmations are switched off.
 			const foreign = isOwnedByAnotherUser(info, environment.currentUser);
 			const detail = [
 				foreign &&
 					`Warning: this process belongs to another user (${info.user}), not to you (${environment.currentUser}). Stopping it may disrupt that user or the system, and it will probably need elevated rights.`,
-				`Listening on port ${info.port}.`,
+				`Listening on port ${info.port}${name ? `, named “${name}”` : ''}.`,
 				info.command && `Command: ${info.command}`,
 			]
 				.filter(Boolean)
@@ -159,6 +165,17 @@ export function createPortActions(
 	return {
 		kill,
 		killByPort,
+
+		rename: info =>
+			safely(async () => {
+				const entered = await ui.promptLabel(info.port, labels.get(info.port));
+				if (entered === undefined) {
+					return;
+				}
+				const name = normalizeLabel(entered);
+				await labels.set(info.port, name);
+				ui.showStatus(name ? `Named port ${info.port} “${name}”` : `Removed the name of port ${info.port}`);
+			}),
 
 		copyPort: info =>
 			safely(async () => {

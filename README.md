@@ -5,10 +5,14 @@ See which processes are listening on local ports, right from the VS Code sidebar
 ## Features
 
 - **Port Manager** activity bar icon with a **Listening Ports** view.
-- Each row shows the port, protocol, process name, PID and user. Hover a row for the bind address, full command line and working directory (when known).
-- A status bar item shows `$(plug) N`, the number of listening ports (the same rows the view lists). Click it to open the Port Manager view. On an error it keeps the last known count and turns yellow, with the reason in its tooltip.
+- Each row reads like a small server card: the **port** first, then the **name**, with the process and PID in grey, for example `5204  hellooajo` over `node · pid 27510`. Rows without a name of their own show where they listen instead (`[::1] · pid 27509`). Hover a row for the user, full command line and working directory (when known).
+- The view header shows how many ports are running and the sort order (`8 running · Sort: PID`), and the sidebar icon carries the same count as a badge.
+- **Filter** (search icon in the view's title bar) opens a search box that narrows the list as you type, by port, name, process, PID, address or command; Enter keeps the search, Escape restores the previous one, and a clear button appears while a search is active. **Sort** (sort icon) orders the list by Port, PID or Name; the choice is remembered.
+- **Show Running Only** (filter icon in the title bar) hides the rows whose process Port Manager cannot see, such as other users' services, which would show as "Unknown process". The header says how many are tucked away (`5 running · 3 hidden`), the status bar count follows the list, and the same button switches back to **Show All Ports**. The choice is remembered; by default everything is shown.
+- **Rename** (pencil on each row) gives a port a name such as `frontend`. The name is remembered per port, shown on the row and in the stop confirmation, searchable, and used by **Kill Process on Port…**.
+- A status bar item shows `$(plug) N`, the number of listening ports (the same rows the view lists, so it respects **Show Running Only**). Click it to open the Port Manager view. On an error it keeps the last known count and turns yellow, with the reason in its tooltip.
 - The list refreshes automatically (every 2 seconds by default, see Settings) while the view is visible or the status bar item is shown, and stops polling when neither is on screen. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
-- Row actions, as inline buttons and in the right-click menu:
+- Row actions, as inline buttons (pencil, open, stop) and in the right-click menu:
   - **Open in Browser** opens `http://localhost:<port>`.
   - **Kill Process** asks for confirmation (process name and PID), then stops the process: a graceful stop first, forced after a few seconds on macOS/Linux, and `taskkill /T /F` on Windows. It shows a clear message if the process is already gone or you lack permission.
   - **Copy Port** and **Copy PID** (right-click menu).

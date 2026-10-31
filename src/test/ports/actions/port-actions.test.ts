@@ -29,6 +29,8 @@ interface FakeUiOptions {
 	confirms?: boolean;
 	opens?: boolean;
 	copyError?: Error;
+	/** What the user types when asked to name a port; undefined means they cancelled. */
+	typed?: string;
 	/** Chooses from the offered ports; by default the first one. */
 	pick?: (ports: readonly PortInfo[]) => PortInfo | undefined;
 }
@@ -36,6 +38,7 @@ interface FakeUiOptions {
 function fakeUi(options: FakeUiOptions = {}) {
 	const log = {
 		offered: [] as PortInfo[],
+		prompts: [] as Array<{ port: number; current: string | undefined }>,
 		confirmations: [] as Confirmation[],
 		status: [] as string[],
 		warnings: [] as string[],
@@ -48,6 +51,10 @@ function fakeUi(options: FakeUiOptions = {}) {
 		async confirm(message, detail, actionLabel) {
 			log.confirmations.push({ message, detail, actionLabel });
 			return options.confirms ?? true;
+		},
+		async promptLabel(port, current) {
+			log.prompts.push({ port, current });
+			return options.typed;
 		},
 		async pickPort(ports) {
 			log.offered.push(...ports);
@@ -466,6 +473,94 @@ suite('permission-denied guidance', () => {
 		const failed: KillResult = { status: 'failed', message: 'Process 900 is still running after SIGKILL.' };
 		await createPortActions(fakeKiller(failed).killer, ui, liveSettings(), { platform: 'linux' }).kill(root);
 		assert.doesNotMatch(log.errors[0], /sudo|administrator/);
+	});
+});
+
+/** A name store that remembers in memory and records every write. */
+function fakeLabels(initial: Record<number, string> = {}) {
+	const names = new Map<number, string>(Object.entries(initial).map(([port, name]) => [Number(port), name]));
+	const writes: Array<[number, string | undefined]> = [];
+	return {
+		writes,
+		get: (port: number) => names.get(port),
+		async set(port: number, label: string | undefined) {
+			writes.push([port, label]);
+			label === undefined ? names.delete(port) : names.set(port, label);
+		},
+	};
+}
+
+suite('kill confirmation for a named port', () => {
+	test('shows the name you gave the port, so you recognise what you are stopping', async () => {
+		const { ui, log } = fakeUi();
+		const labels = fakeLabels({ 3000: 'zenitsu' });
+		await createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), {}, labels).kill(port());
+		assert.strictEqual(log.confirmations[0].detail, 'Listening on port 3000, named “zenitsu”.\n\nCommand: node server.js');
+	});
+
+	test('says nothing about a name when there is none', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), {}, fakeLabels()).kill(port());
+		assert.doesNotMatch(log.confirmations[0].detail ?? '', /named/);
+	});
+});
+
+suite('rename action', () => {
+	const rename = (typed: string | undefined, labels = fakeLabels(), info = port()) => {
+		const { ui, log } = fakeUi({ typed });
+		const actions = createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), {}, labels);
+		return { run: () => actions.rename(info), log, labels };
+	};
+
+	test('asks with the current name filled in', async () => {
+		const attempt = rename('x', fakeLabels({ 3000: 'frontend' }));
+		await attempt.run();
+		assert.deepStrictEqual(attempt.log.prompts, [{ port: 3000, current: 'frontend' }]);
+	});
+
+	test('asks with no name when the port has none', async () => {
+		const attempt = rename('x');
+		await attempt.run();
+		assert.deepStrictEqual(attempt.log.prompts, [{ port: 3000, current: undefined }]);
+	});
+
+	test('saves the typed name, tidied, and says so', async () => {
+		const attempt = rename('  my   api ');
+		await attempt.run();
+		assert.deepStrictEqual(attempt.labels.writes, [[3000, 'my api']]);
+		assert.deepStrictEqual(attempt.log.status, ['Named port 3000 “my api”']);
+	});
+
+	test('removes the name when nothing is typed', async () => {
+		const attempt = rename('   ', fakeLabels({ 3000: 'frontend' }));
+		await attempt.run();
+		assert.deepStrictEqual(attempt.labels.writes, [[3000, undefined]]);
+		assert.strictEqual(attempt.labels.get(3000), undefined);
+		assert.deepStrictEqual(attempt.log.status, ['Removed the name of port 3000']);
+	});
+
+	test('changes nothing when cancelled', async () => {
+		const attempt = rename(undefined, fakeLabels({ 3000: 'frontend' }));
+		await attempt.run();
+		assert.deepStrictEqual(attempt.labels.writes, []);
+		assert.deepStrictEqual(attempt.log.status, []);
+	});
+
+	test('works for a protected port and for a hidden process, since it only names the port', async () => {
+		const protectedSettings = liveSettings({ protectedPorts: [3000] });
+		const { ui } = fakeUi({ typed: 'db' });
+		const labels = fakeLabels();
+		const actions = createPortActions(fakeKiller(killedResult).killer, ui, protectedSettings, {}, labels);
+		await actions.rename(port());
+		await actions.rename(hidden);
+		assert.deepStrictEqual(labels.writes, [[3000, 'db'], [3000, 'db']]);
+	});
+
+	test('reports a failure to save instead of throwing', async () => {
+		const { ui, log } = fakeUi({ typed: 'x' });
+		const broken = { get: () => undefined, set: async () => { throw new Error('disk full'); } };
+		await createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), {}, broken).rename(port());
+		assert.deepStrictEqual(log.errors, ['Port Manager: disk full']);
 	});
 });
 
