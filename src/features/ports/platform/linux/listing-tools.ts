@@ -7,11 +7,15 @@ export interface ListingTool {
 	file: string;
 	args: string[];
 	parse(output: string): PortInfo[];
+	/** lsof walks every open file, which can take a while on a busy machine. */
+	timeoutMs?: number;
 }
 
-/** In order of preference: the first one installed is used. */
+const LSOF_TIMEOUT_MS = 15_000;
+
+/** In order of preference: the first one that works is used. */
 export const LISTING_TOOLS: readonly ListingTool[] = [
 	{ file: 'ss', args: ['-ltnp'], parse: parseSs },
-	{ file: 'lsof', args: ['-iTCP', '-sTCP:LISTEN', '-P', '-n', '-F', 'pcLn'], parse: parseLsof },
+	{ file: 'lsof', args: ['-iTCP', '-sTCP:LISTEN', '-P', '-n', '+c', '0', '-F', 'pcLn'], parse: parseLsof, timeoutMs: LSOF_TIMEOUT_MS },
 	{ file: 'netstat', args: ['-tlnp'], parse: parseNetstat },
 ];

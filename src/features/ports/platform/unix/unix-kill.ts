@@ -1,6 +1,7 @@
-import { KillOptions, KillResult } from '../port-types';
-import { checkKillable } from './kill-guards';
-import { failed, fromSignalError, killed } from './kill-results';
+import { checkKillable } from '../../kill/kill-guards';
+import { failed, fromSignalError, killed } from '../../kill/kill-results';
+import { KillOptions, KillResult } from '../../port-types';
+import { readProcessState } from './process-state';
 
 const DEFAULT_GRACE_PERIOD_MS = 3000;
 const POLL_INTERVAL_MS = 100;
@@ -11,21 +12,24 @@ const EXISTENCE_CHECK = 0;
 export interface UnixKillDeps {
 	sendSignal(pid: number, signal: NodeJS.Signals | typeof EXISTENCE_CHECK): void;
 	sleep(ms: number): Promise<void>;
+	/** A zombie has exited but is not yet reaped by its parent; it still answers signal 0 and holds no ports. */
+	isZombie(pid: number): boolean;
 }
 
 const systemDeps: UnixKillDeps = {
 	sendSignal: (pid, signal) => process.kill(pid, signal),
 	sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+	isZombie: pid => readProcessState(pid) === 'Z',
 };
 
 function isAlive(deps: UnixKillDeps, pid: number): boolean {
 	try {
 		deps.sendSignal(pid, EXISTENCE_CHECK);
-		return true;
 	} catch (error) {
 		// EPERM still means the process exists, we just may not signal it.
 		return (error as NodeJS.ErrnoException).code !== 'ESRCH';
 	}
+	return !deps.isZombie(pid);
 }
 
 async function waitForExit(deps: UnixKillDeps, pid: number, timeoutMs: number): Promise<boolean> {

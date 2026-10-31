@@ -1,3 +1,4 @@
+import { Emitter } from '../../../shared/emitter';
 import { KeyValueStore } from './key-value-store';
 import { DEFAULT_SORT, isSortMode, SortMode } from './port-list-model';
 
@@ -9,7 +10,7 @@ export class ViewOptions {
 	private currentQuery = '';
 	private currentSort: SortMode;
 	private currentRunningOnly: boolean;
-	private readonly listeners = new Set<() => void>();
+	private readonly changes = new Emitter();
 
 	constructor(private readonly store: KeyValueStore) {
 		const saved = store.get<unknown>(SORT_KEY, DEFAULT_SORT);
@@ -54,11 +55,10 @@ export class ViewOptions {
 	}
 
 	onDidChange(listener: () => void): { dispose(): void } {
-		this.listeners.add(listener);
-		return { dispose: () => void this.listeners.delete(listener) };
+		return this.changes.listen(listener);
 	}
 
 	private notify(): void {
-		this.listeners.forEach(listener => listener());
+		this.changes.fire();
 	}
 }

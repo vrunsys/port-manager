@@ -21,9 +21,8 @@ export const LIST_PORTS_SCRIPT = [
 ].join('\n');
 
 /** -EncodedCommand takes base64 UTF-16LE, which avoids all escaping problems. */
-export const POWERSHELL_LIST_ARGS: readonly string[] = [
-	'-NoProfile',
-	'-NonInteractive',
-	'-EncodedCommand',
-	Buffer.from(LIST_PORTS_SCRIPT, 'utf16le').toString('base64'),
-];
+export function powerShellArgs(script: string): string[] {
+	return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')];
+}
+
+export const POWERSHELL_LIST_ARGS: readonly string[] = powerShellArgs(LIST_PORTS_SCRIPT);

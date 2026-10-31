@@ -9,14 +9,14 @@ import {
 	formatPortLabel,
 	SCANNING_MESSAGE,
 } from '../../../features/ports/view/port-formatting';
-import { PortInfo, UNKNOWN_LABEL } from '../../../features/ports/port-types';
+import { PortInfo } from '../../../features/ports/port-types';
 import { PortsState } from '../../../features/ports/service/ports-service';
 
 function port(overrides: Partial<PortInfo> = {}): PortInfo {
 	return { port: 3000, protocol: 'tcp', address: '127.0.0.1', pid: 100, processName: 'node', user: 'varun', ...overrides };
 }
 
-const hidden = port({ pid: undefined, processName: UNKNOWN_LABEL, user: UNKNOWN_LABEL });
+const hidden = port({ pid: undefined, processName: undefined, user: undefined });
 
 suite('port row text', () => {
 	test('label is the port number', () => {
@@ -28,7 +28,7 @@ suite('port row text', () => {
 	});
 
 	test('description leaves out an unknown user', () => {
-		assert.strictEqual(formatPortDescription(port({ user: UNKNOWN_LABEL })), 'tcp · node · PID 100');
+		assert.strictEqual(formatPortDescription(port({ user: undefined })), 'tcp · node · PID 100');
 	});
 
 	test('description says the process is hidden when there is no PID', () => {

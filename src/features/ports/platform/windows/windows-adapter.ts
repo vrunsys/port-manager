@@ -1,52 +1,72 @@
-import { runCommand } from '../../../../shared/run-command';
-import { CommandRunner } from '../command-runner';
+import { errorMessage } from '../../../../shared/error-message';
+import { logger } from '../../../../shared/logger';
+import { CommandRunner, runCommand } from '../../../../shared/run-command';
+import { KillResult, PlatformAdapter, PortInfo, PortListingError } from '../../port-types';
+import { asListingError, withListingErrors } from '../listing-error';
 import { parsePowerShellPorts } from '../parsers/powershell-parser';
 import { parseTasklistCsv } from '../parsers/tasklist-parser';
 import { parseWindowsNetstat } from '../parsers/windows-netstat-parser';
-import { killWindowsProcess } from '../../kill/windows-kill';
-import { KillResult, PlatformAdapter, PortInfo } from '../../port-types';
 import { POWERSHELL_LIST_ARGS } from './powershell-script';
+import { killWindowsProcess } from './windows-kill';
+import { windowsTool } from './windows-tools';
 
 // Cold PowerShell start can take seconds; generous until measured by scripts/spike-windows-ports.js.
 const POWERSHELL_TIMEOUT_MS = 15_000;
-
-function describe(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
+const TOOL_TIMEOUT_MS = 10_000;
+/** After PowerShell fails, use netstat and tasklist for this long instead of paying its timeout on every scan. */
+const POWERSHELL_RETRY_MS = 5 * 60 * 1000;
 
 export class WindowsAdapter implements PlatformAdapter {
-	constructor(private readonly run: CommandRunner = runCommand) {}
+	private powerShellRetryAt = 0;
+	private lastPowerShellFailure = '';
 
-	async listPorts(): Promise<PortInfo[]> {
-		let powerShellFailure: string;
-		try {
-			return parsePowerShellPorts(await this.runPowerShell());
-		} catch (error) {
-			powerShellFailure = describe(error);
-		}
-		try {
-			return await this.listWithNetstat();
-		} catch (error) {
-			throw new Error(
-				`Could not list ports. PowerShell: ${powerShellFailure}; netstat/tasklist: ${describe(error)}`,
-			);
-		}
+	constructor(
+		private readonly run: CommandRunner = runCommand,
+		private readonly now: () => number = Date.now,
+	) {}
+
+	listPorts(): Promise<PortInfo[]> {
+		return withListingErrors(() => this.list());
 	}
 
 	killProcess(pid: number): Promise<KillResult> {
 		return killWindowsProcess(pid, this.run);
 	}
 
+	private async list(): Promise<PortInfo[]> {
+		if (this.now() >= this.powerShellRetryAt) {
+			try {
+				return parsePowerShellPorts(await this.runPowerShell());
+			} catch (error) {
+				this.lastPowerShellFailure = errorMessage(error);
+				this.powerShellRetryAt = this.now() + POWERSHELL_RETRY_MS;
+				logger.warn(
+					`PowerShell could not list ports (${this.lastPowerShellFailure}). Using netstat and tasklist, which show no command paths, for the next ${POWERSHELL_RETRY_MS / 60000} minutes.`,
+				);
+			}
+		}
+		try {
+			return await this.listWithNetstat();
+		} catch (error) {
+			// Both paths failed: report both, and keep the kind of the last failure (permission, timeout...).
+			const cause = asListingError(error);
+			throw new PortListingError(
+				`Could not list ports. PowerShell: ${this.lastPowerShellFailure || 'not tried'}; netstat/tasklist: ${cause.message}`,
+				cause.kind,
+			);
+		}
+	}
+
 	private runPowerShell(): Promise<string> {
-		return this.run('powershell.exe', [...POWERSHELL_LIST_ARGS], { timeoutMs: POWERSHELL_TIMEOUT_MS });
+		return this.run(windowsTool('powershell'), [...POWERSHELL_LIST_ARGS], { timeoutMs: POWERSHELL_TIMEOUT_MS });
 	}
 
 	private async listWithNetstat(): Promise<PortInfo[]> {
-		const ports = parseWindowsNetstat(await this.run('netstat', ['-ano']));
+		const ports = parseWindowsNetstat(await this.run(windowsTool('netstat'), ['-ano'], { timeoutMs: TOOL_TIMEOUT_MS }));
 		if (ports.length === 0) {
 			return ports;
 		}
-		const names = parseTasklistCsv(await this.run('tasklist', ['/FO', 'CSV', '/NH']));
+		const names = parseTasklistCsv(await this.run(windowsTool('tasklist'), ['/FO', 'CSV', '/NH'], { timeoutMs: TOOL_TIMEOUT_MS }));
 		return ports.map(port => {
 			const processName = port.pid === undefined ? undefined : names.get(port.pid);
 			return processName ? { ...port, processName } : port;

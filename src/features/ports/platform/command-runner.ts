@@ -1,14 +1,17 @@
-import { CommandError, RunCommandOptions } from '../../../shared/run-command';
-
-export type CommandRunner = (file: string, args: string[], options?: RunCommandOptions) => Promise<string>;
+import { CommandError, CommandRunner, RunCommandOptions } from '../../../shared/run-command';
 
 /**
  * ss, lsof and ps exit non-zero in harmless cases (nothing matched, a PID already
  * exited), so output from such a run is kept unless stderr says it really failed.
  */
-export async function runKeepingOutput(run: CommandRunner, file: string, args: string[]): Promise<string> {
+export async function runKeepingOutput(
+	run: CommandRunner,
+	file: string,
+	args: string[],
+	options?: RunCommandOptions,
+): Promise<string> {
 	try {
-		return await run(file, args);
+		return await run(file, args, options);
 	} catch (error) {
 		const harmless =
 			error instanceof CommandError &&

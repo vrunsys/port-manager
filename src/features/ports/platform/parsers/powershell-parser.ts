@@ -1,5 +1,5 @@
-import { PortInfo, UNKNOWN_LABEL } from '../../port-types';
-import { isValidPort } from './parse-host-port';
+import { PortInfo } from '../../port-types';
+import { isValidPort } from '../../../../shared/port-number';
 
 const BYTE_ORDER_MARK = /^﻿/;
 
@@ -26,8 +26,8 @@ function toPortInfo(entry: unknown): PortInfo | undefined {
 		// Link-local addresses carry a zone id ("fe80::1%12").
 		address: address.replace(/%.*$/, ''),
 		pid: Number.isInteger(entry.Pid) ? (entry.Pid as number) : undefined,
-		processName: nonEmptyString(entry.ProcessName) ?? UNKNOWN_LABEL,
-		user: UNKNOWN_LABEL,
+		processName: nonEmptyString(entry.ProcessName),
+		user: undefined,
 		...(command && { command }),
 	};
 }

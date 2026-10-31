@@ -1,4 +1,4 @@
-import { PortInfo, UNKNOWN_LABEL } from '../../port-types';
+import { PortInfo } from '../../port-types';
 import { parseHostPort } from './parse-host-port';
 
 const LISTEN_STATE = '(LISTEN)';
@@ -31,8 +31,8 @@ function parseRow(line: string): PortInfo | undefined {
 		...local,
 		protocol: 'tcp',
 		pid: isNumber(tokens[pidIndex]) ? Number(tokens[pidIndex]) : undefined,
-		processName: hasCommand ? unescapeCommand(tokens[0]) : UNKNOWN_LABEL,
-		user: hasUser ? tokens[pidIndex + 1] : UNKNOWN_LABEL,
+		processName: hasCommand ? unescapeCommand(tokens[0]) : undefined,
+		user: hasUser ? tokens[pidIndex + 1] : undefined,
 	};
 }
 

@@ -1,4 +1,4 @@
-import { PortInfo, UNKNOWN_LABEL } from '../../port-types';
+import { PortInfo } from '../../port-types';
 import { parseHostPort } from './parse-host-port';
 
 /**
@@ -9,15 +9,15 @@ import { parseHostPort } from './parse-host-port';
 export function parseLsof(output: string): PortInfo[] {
 	const ports: PortInfo[] = [];
 	let pid: number | undefined;
-	let processName = UNKNOWN_LABEL;
-	let user = UNKNOWN_LABEL;
+	let processName: string | undefined;
+	let user: string | undefined;
 	for (const line of output.split('\n')) {
 		const value = line.slice(1);
 		switch (line[0]) {
 			case 'p':
 				pid = Number(value);
-				processName = UNKNOWN_LABEL;
-				user = UNKNOWN_LABEL;
+				processName = undefined;
+				user = undefined;
 				break;
 			case 'c':
 				processName = value;

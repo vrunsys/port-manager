@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { parseLsofTable } from '../../../../features/ports/platform/parsers/lsof-table-parser';
-import { PortInfo, UNKNOWN_LABEL } from '../../../../features/ports/port-types';
+import { PortInfo } from '../../../../features/ports/port-types';
 import { linux, macos } from '../../../fixtures/load-fixtures';
 
 const brief = (ports: PortInfo[]) => ports.map(p => [p.port, p.address, p.pid, p.processName, p.user]);
@@ -70,13 +70,13 @@ suite('parseLsofTable (edge cases)', () => {
 		const [port] = parseLsofTable('node 5521 4u IPv4 0x1 0t0 TCP *:3000 (LISTEN)');
 		assert.strictEqual(port.pid, 5521);
 		assert.strictEqual(port.processName, 'node');
-		assert.strictEqual(port.user, UNKNOWN_LABEL);
+		assert.strictEqual(port.user, undefined);
 	});
 
 	test('marks a missing COMMAND column as unknown', () => {
 		const [port] = parseLsofTable('5521 varun 4u IPv4 0x1 0t0 TCP *:3000 (LISTEN)');
 		assert.strictEqual(port.pid, 5521);
-		assert.strictEqual(port.processName, UNKNOWN_LABEL);
+		assert.strictEqual(port.processName, undefined);
 		assert.strictEqual(port.user, 'varun');
 	});
 

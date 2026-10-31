@@ -1,3 +1,4 @@
+import { Emitter } from '../../../shared/emitter';
 import { KeyValueStore } from './key-value-store';
 
 export const MAX_LABEL_LENGTH = 40;
@@ -25,7 +26,9 @@ export function normalizeLabel(input: string): string | undefined {
 
 /** Names you give ports ("3000 = frontend"), kept per port number so they survive restarting the server. */
 export class LabelStore implements LabelWriter {
-	private readonly listeners = new Set<() => void>();
+	private readonly changes = new Emitter();
+	/** Writes run one after another: each reads the stored names right before it writes them back. */
+	private writes: Promise<void> = Promise.resolve();
 
 	constructor(private readonly store: KeyValueStore) {}
 
@@ -34,20 +37,24 @@ export class LabelStore implements LabelWriter {
 		return typeof label === 'string' && label !== '' ? label : undefined;
 	}
 
-	async set(port: number, label: string | undefined): Promise<void> {
-		const next = { ...this.all() };
-		if (label === undefined) {
-			delete next[String(port)];
-		} else {
-			next[String(port)] = label;
-		}
-		await this.store.update(STORAGE_KEY, next);
-		this.listeners.forEach(listener => listener());
+	set(port: number, label: string | undefined): Promise<void> {
+		const write = this.writes.then(async () => {
+			const next = { ...this.all() };
+			if (label === undefined) {
+				delete next[String(port)];
+			} else {
+				next[String(port)] = label;
+			}
+			await this.store.update(STORAGE_KEY, next);
+			this.changes.fire();
+		});
+		// A failed write must not block the ones after it; the caller still gets the error from `write`.
+		this.writes = write.catch(() => undefined);
+		return write;
 	}
 
 	onDidChange(listener: () => void): { dispose(): void } {
-		this.listeners.add(listener);
-		return { dispose: () => void this.listeners.delete(listener) };
+		return this.changes.listen(listener);
 	}
 
 	/** Stored data may be hand-edited or written by another version, so its shape is not trusted. */

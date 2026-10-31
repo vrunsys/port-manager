@@ -1,10 +1,14 @@
 import { PortsService } from './ports-service';
 
-export type PollingReason = 'view' | 'status-bar';
+type PollingReason = 'view' | 'status-bar';
 
-/** Polling is only worth its cost while something on screen shows the result. */
+/**
+ * Polling is only worth its cost while something on screen shows the result AND the window is in use:
+ * an unfocused or minimized window needs no fresh data, and gets a scan the moment it is focused again.
+ */
 export class PollingDemand {
 	private readonly active = new Set<PollingReason>();
+	private windowFocused = true;
 
 	constructor(private readonly service: Pick<PortsService, 'setPollingEnabled'>) {}
 
@@ -14,6 +18,15 @@ export class PollingDemand {
 		} else {
 			this.active.delete(reason);
 		}
-		this.service.setPollingEnabled(this.active.size > 0);
+		this.apply();
+	}
+
+	setWindowFocused(focused: boolean): void {
+		this.windowFocused = focused;
+		this.apply();
+	}
+
+	private apply(): void {
+		this.service.setPollingEnabled(this.windowFocused && this.active.size > 0);
 	}
 }

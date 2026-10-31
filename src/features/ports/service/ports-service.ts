@@ -1,10 +1,16 @@
-import { portListsEqual, dedupePorts } from './port-list';
-import { PortsError, toPortsError } from './port-errors';
+import { Emitter } from '../../../shared/emitter';
+import { errorMessage } from '../../../shared/error-message';
+import { logger } from '../../../shared/logger';
+import { failed, notFound } from '../kill/kill-results';
 import { KillOptions, KillResult, PlatformAdapter, PortInfo } from '../port-types';
+import { PortsError, toPortsError } from './port-errors';
+import { dedupePorts, portListsEqual } from './port-list';
 
-export const DEFAULT_INTERVAL_MS = 2000;
+const DEFAULT_INTERVAL_MS = 2000;
 /** Each scan starts several processes, so polling faster than this only wastes work. */
 export const MIN_INTERVAL_MS = 500;
+/** The wait between scans is at least this many times the last scan's duration, so a slow tool is not hammered. */
+const SLOW_SCAN_FACTOR = 4;
 
 export interface PortsState {
 	ports: readonly PortInfo[];
@@ -22,6 +28,10 @@ export interface Scheduler {
 export interface PortsServiceOptions {
 	intervalMs?: number;
 	scheduler?: Scheduler;
+	/** Milliseconds clock, for measuring how long a scan takes. */
+	now?: () => number;
+	/** Why a process must not be stopped, or undefined if it may be. Checked again right before every kill. */
+	killPolicy?: (info: PortInfo) => string | undefined;
 }
 
 type Listener = (state: PortsState) => void;
@@ -50,9 +60,12 @@ function statesEqual(a: PortsState, b: PortsState): boolean {
  */
 export class PortsService {
 	private current: PortsState = { ports: [], loaded: false, error: undefined };
-	private readonly listeners = new Set<Listener>();
+	private readonly changes = new Emitter<PortsState>();
 	private readonly scheduler: Scheduler;
+	private readonly now: () => number;
+	private readonly killPolicy: (info: PortInfo) => string | undefined;
 	private intervalMs: number;
+	private lastScanMs = 0;
 	private timer: unknown;
 	private inFlight: Promise<void> | undefined;
 	private polling = false;
@@ -64,6 +77,8 @@ export class PortsService {
 	) {
 		this.intervalMs = clampInterval(options.intervalMs ?? DEFAULT_INTERVAL_MS);
 		this.scheduler = options.scheduler ?? systemScheduler;
+		this.now = options.now ?? Date.now;
+		this.killPolicy = options.killPolicy ?? (() => undefined);
 	}
 
 	get state(): PortsState {
@@ -71,11 +86,10 @@ export class PortsService {
 	}
 
 	onDidChange(listener: Listener): { dispose(): void } {
-		this.listeners.add(listener);
-		return { dispose: () => void this.listeners.delete(listener) };
+		return this.changes.listen(listener);
 	}
 
-	/** Turn polling on while the view is visible and off while it is hidden. */
+	/** Turn polling on while something shows the ports and the window is in use, and off otherwise. */
 	setPollingEnabled(enabled: boolean): void {
 		if (this.disposed || enabled === this.polling) {
 			return;
@@ -107,12 +121,25 @@ export class PortsService {
 		return this.inFlight;
 	}
 
-	/** Stops a process, then rescans so the list reflects the outcome even when the kill failed. */
-	async killProcess(pid: number, options?: KillOptions): Promise<KillResult> {
+	/**
+	 * Stops the process that holds `target`, but only after checking, with a scan that starts now, that it still
+	 * holds that port with the same command (a recycled PID would otherwise hit an unrelated process) and that the
+	 * kill policy still allows it. The list is rescanned afterwards whatever the outcome.
+	 */
+	async killPort(target: PortInfo, options?: KillOptions): Promise<KillResult> {
+		const { pid } = target;
+		if (pid === undefined) {
+			return failed(`Port ${target.port} has no known process to stop.`);
+		}
+		await this.scanFresh();
+		const refusal = this.verifyTarget(target, pid);
+		if (refusal) {
+			return refusal;
+		}
 		try {
 			return await this.adapter.killProcess(pid, options);
 		} finally {
-			await this.refresh();
+			await this.scanFresh();
 		}
 	}
 
@@ -120,18 +147,45 @@ export class PortsService {
 		this.disposed = true;
 		this.polling = false;
 		this.clearTimer();
-		this.listeners.clear();
+		this.changes.clear();
+	}
+
+	private verifyTarget(target: PortInfo, pid: number): KillResult | undefined {
+		if (this.current.error) {
+			return failed(`Could not confirm that process ${pid} still holds port ${target.port}, so nothing was stopped: ${this.current.error.message}`);
+		}
+		const found = this.current.ports.find(
+			info => info.protocol === target.protocol && info.port === target.port && info.pid === pid,
+		);
+		if (!found) {
+			return notFound(pid);
+		}
+		if (target.command !== undefined && found.command !== undefined && target.command !== found.command) {
+			logger.warn(`Refused to stop process ${pid}: its command changed from "${target.command}" to "${found.command}".`);
+			return failed(`Process ${pid} now runs a different command than the one you chose, so nothing was stopped.`);
+		}
+		const blocked = this.killPolicy(found);
+		return blocked ? failed(`Refusing to stop process ${pid}: ${blocked}.`) : undefined;
+	}
+
+	/** A scan that starts after any scan already running has finished, so its answer is not older than the call. */
+	private async scanFresh(): Promise<void> {
+		await this.inFlight;
+		await this.refresh();
 	}
 
 	private async scan(): Promise<void> {
 		// The next scan is timed from the end of this one, so they can never pile up.
 		this.clearTimer();
+		const started = this.now();
 		let next: PortsState;
 		try {
 			next = { ports: dedupePorts(await this.adapter.listPorts()), loaded: true, error: undefined };
 		} catch (error) {
 			next = { ports: this.current.ports, loaded: true, error: toPortsError(error) };
+			logger.warn(`Listing ports failed: ${errorMessage(error)}`);
 		}
+		this.lastScanMs = this.now() - started;
 		if (this.disposed) {
 			return;
 		}
@@ -144,24 +198,18 @@ export class PortsService {
 			return;
 		}
 		this.current = next;
-		for (const listener of this.listeners) {
-			try {
-				listener(next);
-			} catch (error) {
-				// A broken listener must not stop polling or starve the other listeners.
-				console.error('Port Manager: a change listener threw', error);
-			}
-		}
+		this.changes.fire(next);
 	}
 
 	private scheduleNext(): void {
 		if (!this.polling || this.disposed) {
 			return;
 		}
+		const delay = Math.max(this.intervalMs, this.lastScanMs * SLOW_SCAN_FACTOR);
 		this.timer = this.scheduler.setTimeout(() => {
 			this.timer = undefined;
 			void this.refresh();
-		}, this.intervalMs);
+		}, delay);
 	}
 
 	private clearTimer(): void {

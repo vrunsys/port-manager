@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { parsePowerShellPorts } from '../../../../features/ports/platform/parsers/powershell-parser';
-import { UNKNOWN_LABEL } from '../../../../features/ports/port-types';
 import { windows } from '../../../fixtures/load-fixtures';
 
 suite('parsePowerShellPorts (sample JSON)', () => {
@@ -14,7 +13,7 @@ suite('parsePowerShellPorts (sample JSON)', () => {
 				[135, '::', 1032, 'svchost'],
 				[3000, '::', 5521, 'node'],
 				[3001, '127.0.0.1', 5521, 'node'],
-				[49670, 'fe80::1', 4, UNKNOWN_LABEL],
+				[49670, 'fe80::1', 4, undefined],
 			],
 		);
 	});

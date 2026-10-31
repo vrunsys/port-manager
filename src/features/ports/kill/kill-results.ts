@@ -1,3 +1,4 @@
+import { errorMessage } from '../../../shared/error-message';
 import { KillResult } from '../port-types';
 
 export const killed = (pid: number): KillResult => ({ status: 'killed', message: `Stopped process ${pid}.` });
@@ -16,12 +17,12 @@ export const failed = (message: string): KillResult => ({ status: 'failed', mess
 
 /** Maps the error thrown by process.kill to a result. */
 export function fromSignalError(error: unknown, pid: number): KillResult {
-	const code = (error as NodeJS.ErrnoException).code;
+	const code = (error as NodeJS.ErrnoException | null | undefined)?.code;
 	if (code === 'ESRCH') {
 		return notFound(pid);
 	}
 	if (code === 'EPERM') {
 		return permissionDenied(pid);
 	}
-	return failed(`Could not stop process ${pid}: ${error instanceof Error ? error.message : String(error)}`);
+	return failed(`Could not stop process ${pid}: ${errorMessage(error)}`);
 }

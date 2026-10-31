@@ -1,5 +1,4 @@
-import { PortsErrorKind } from '../service/port-errors';
-import { PortInfo, UNKNOWN_LABEL } from '../port-types';
+import { PortInfo, PortsErrorKind } from '../port-types';
 import { PortsState } from '../service/ports-service';
 import { scopePorts } from './port-list-model';
 
@@ -25,8 +24,8 @@ export function formatPortDescription(info: PortInfo): string {
 	if (info.pid === undefined) {
 		return [info.protocol, 'process hidden'].join(SEPARATOR);
 	}
-	const parts = [info.protocol, info.processName, `PID ${info.pid}`];
-	if (info.user !== UNKNOWN_LABEL) {
+	const parts = [info.protocol, info.processName ?? 'unknown process', `PID ${info.pid}`];
+	if (info.user !== undefined) {
 		parts.push(info.user);
 	}
 	return parts.join(SEPARATOR);
@@ -44,13 +43,13 @@ export function buildPortTooltip(info: PortInfo, protection?: string, label?: st
 	const process =
 		info.pid === undefined
 			? 'Process: hidden (it probably belongs to another user)'
-			: `Process: ${asCode(`${info.processName} (PID ${info.pid})`, false)}`;
+			: `Process: ${asCode(`${info.processName ?? 'unknown'} (PID ${info.pid})`, false)}`;
 	const sections = [
 		`**Port ${info.port}** (${info.protocol})`,
 		label ? `Name: ${asCode(label, false)}` : undefined,
 		`Address: ${asCode(info.address, false)}`,
 		process,
-		info.user === UNKNOWN_LABEL ? undefined : `User: ${asCode(info.user, false)}`,
+		info.user === undefined ? undefined : `User: ${asCode(info.user, false)}`,
 		info.command ? `Command:\n${asCode(info.command, true)}` : undefined,
 		info.cwd ? `Working directory: ${asCode(info.cwd, false)}` : undefined,
 		protection ? `**Protected:** ${protection}. Port Manager will not stop it.` : undefined,

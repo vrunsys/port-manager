@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { killUnixProcess, UnixKillDeps } from '../../../features/ports/kill/unix-kill';
+import { killUnixProcess, UnixKillDeps } from '../../../../features/ports/platform/unix/unix-kill';
 
 const TEST_PID = 4242;
 
@@ -7,11 +7,13 @@ const errno = (code: string) => Object.assign(new Error(code), { code });
 
 interface FakeState {
 	alive: boolean;
+	/** Exited but not yet reaped: still answers signal 0. */
+	zombie: boolean;
 }
 
 /** A process that reacts to the signals it receives; sleeping is instant. */
 function fakeProcess(onSignal: (signal: string, state: FakeState) => void) {
-	const state: FakeState = { alive: true };
+	const state: FakeState = { alive: true, zombie: false };
 	const signals: string[] = [];
 	const deps: UnixKillDeps = {
 		sendSignal(_pid, signal) {
@@ -25,6 +27,7 @@ function fakeProcess(onSignal: (signal: string, state: FakeState) => void) {
 			onSignal(signal, state);
 		},
 		sleep: async () => {},
+		isZombie: () => state.zombie,
 	};
 	return { deps, signals };
 }
@@ -99,6 +102,30 @@ suite('killUnixProcess', () => {
 			throw errno('ESRCH');
 		});
 		assert.strictEqual((await killUnixProcess(TEST_PID, { force: true }, deps)).status, 'not-found');
+	});
+
+	test('counts a process that became a zombie after SIGTERM as stopped', async () => {
+		const { deps, signals } = fakeProcess((signal, state) => {
+			state.zombie = signal === 'SIGTERM';
+		});
+		const result = await killUnixProcess(TEST_PID, {}, deps);
+		assert.strictEqual(result.status, 'killed');
+		assert.deepStrictEqual(signals, ['SIGTERM']);
+	});
+
+	test('counts a process that became a zombie after SIGKILL as stopped, not as "still running"', async () => {
+		const { deps, signals } = fakeProcess((signal, state) => {
+			state.zombie = signal === 'SIGKILL';
+		});
+		const result = await killUnixProcess(TEST_PID, { gracePeriodMs: 200 }, deps);
+		assert.strictEqual(result.status, 'killed');
+		assert.deepStrictEqual(signals, ['SIGTERM', 'SIGKILL']);
+	});
+
+	test('a process that stays alive is not mistaken for a zombie', async () => {
+		const { deps } = fakeProcess(() => {});
+		const result = await killUnixProcess(TEST_PID, { gracePeriodMs: 200 }, deps);
+		assert.strictEqual(result.status, 'failed');
 	});
 
 	test('never signals protected or invalid pids', async () => {

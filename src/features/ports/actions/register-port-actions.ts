@@ -51,9 +51,9 @@ const createVscodeUi = (labels: LabelStore): PortActionsUi => ({
 		Promise.resolve(vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title }, task)),
 });
 
-/** Menus pass the clicked row; a call without one (e.g. from a keybinding) does nothing. */
+/** Menus pass the clicked row; anything else (a keybinding, or another extension calling the command) does nothing. */
 function onRow(action: (info: PortInfo) => Promise<void>) {
-	return (item?: PortItem) => (item ? action(item.info) : undefined);
+	return (item?: unknown) => (item instanceof PortItem ? action(item.info) : undefined);
 }
 
 /** os.userInfo() throws when the account has no passwd entry (some containers); then no ownership warning is possible. */

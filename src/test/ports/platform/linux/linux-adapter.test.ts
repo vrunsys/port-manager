@@ -1,7 +1,8 @@
 import * as assert from 'assert';
+import { PortListingError } from '../../../../features/ports/port-types';
 import { LinuxAdapter } from '../../../../features/ports/platform/linux/linux-adapter';
-import { UNKNOWN_LABEL } from '../../../../features/ports/port-types';
-import { CommandError } from '../../../../shared/run-command';
+import { setLogSink } from '../../../../shared/logger';
+import { CommandError, RunCommandOptions } from '../../../../shared/run-command';
 import { linux } from '../../../fixtures/load-fixtures';
 
 type Response = string | CommandError;
@@ -49,11 +50,80 @@ suite('LinuxAdapter.listPorts', () => {
 		await assert.rejects(new LinuxAdapter(run).listPorts(), /none of ss, lsof, netstat is installed/);
 	});
 
-	test('does not fall back when a tool is installed but fails', async () => {
-		const broken = new CommandError('ss failed', 'failed', '', 'permission denied');
-		const { run, calls } = fakeRunner({ ss: broken, lsof: linux.lsofFields });
-		await assert.rejects(new LinuxAdapter(run).listPorts(), /ss failed/);
-		assert.deepStrictEqual(calls, ['ss']);
+	test('falls back to the next tool when one is installed but fails (e.g. no netlink in WSL1)', async () => {
+		const broken = new CommandError('ss failed', 'failed', '', 'Cannot open netlink socket: Protocol not supported');
+		const { run, calls } = fakeRunner({ ss: broken, lsof: linux.lsofFields, ps: linux.ps });
+		const ports = await new LinuxAdapter(run).listPorts();
+		assert.deepStrictEqual(calls, ['ss', 'lsof', 'ps']);
+		assert.strictEqual(ports.length, 13);
+	});
+
+	test('says in the log why it moved on to the next tool', async () => {
+		const warnings: string[] = [];
+		setLogSink({ info: () => {}, warn: message => void warnings.push(message), error: () => {} });
+		try {
+			const broken = new CommandError('"ss" failed: netlink', 'failed', '', 'netlink');
+			await new LinuxAdapter(fakeRunner({ ss: broken, lsof: linux.lsofFields, ps: linux.ps }).run).listPorts();
+		} finally {
+			setLogSink(undefined);
+		}
+		assert.deepStrictEqual(warnings, ['ss could not list ports, trying the next tool: "ss" failed: netlink']);
+	});
+
+	test('does not log a missing tool as a failure, since that is the normal case', async () => {
+		const warnings: string[] = [];
+		setLogSink({ info: () => {}, warn: message => void warnings.push(message), error: () => {} });
+		try {
+			await new LinuxAdapter(fakeRunner({ netstat: linux.netstat, ps: linux.ps }).run).listPorts();
+		} finally {
+			setLogSink(undefined);
+		}
+		assert.deepStrictEqual(warnings, []);
+	});
+
+	test('when every installed tool fails, reports the first (preferred) tool\'s failure with its kind', async () => {
+		const first = new CommandError('"ss" failed', 'failed', '', 'Permission denied');
+		const second = new CommandError('"lsof" failed', 'timeout', '', '');
+		const { run, calls } = fakeRunner({ ss: first, lsof: second });
+		await assert.rejects(new LinuxAdapter(run).listPorts(), (error: unknown) => {
+			assert.ok(error instanceof PortListingError);
+			assert.strictEqual(error.kind, 'permission-denied');
+			return true;
+		});
+		assert.deepStrictEqual(calls, ['ss', 'lsof', 'netstat']);
+	});
+
+	test('reports tool-missing, as a typed error, only when no tool is installed', async () => {
+		await assert.rejects(new LinuxAdapter(fakeRunner({}).run).listPorts(), (error: unknown) => error instanceof PortListingError && error.kind === 'tool-missing');
+	});
+
+	test('asks lsof for full command names and gives it extra time', async () => {
+		const seen: Array<{ file: string; args: string[]; timeoutMs?: number }> = [];
+		const run = async (file: string, args: string[], options?: RunCommandOptions): Promise<string> => {
+			seen.push({ file, args, timeoutMs: options?.timeoutMs });
+			if (file === 'ss') {
+				throw new CommandError('ss missing', 'not-found', '', '');
+			}
+			return file === 'lsof' ? linux.lsofFields : linux.ps;
+		};
+		await new LinuxAdapter(run).listPorts();
+		const lsof = seen.find(call => call.file === 'lsof');
+		assert.ok(lsof?.args.join(' ').includes('+c 0'));
+		assert.strictEqual(lsof?.timeoutMs, 15_000);
+	});
+
+	test('still lists the ports, without users and commands, when ps rejects -p (BusyBox on Alpine)', async () => {
+		const busybox = new CommandError("ps: invalid option -- 'p'", 'failed', '', "ps: invalid option -- 'p'");
+		const warnings: string[] = [];
+		setLogSink({ info: () => {}, warn: message => void warnings.push(message), error: () => {} });
+		try {
+			const ports = await new LinuxAdapter(fakeRunner({ ss: linux.ss, ps: busybox }).run).listPorts();
+			assert.strictEqual(ports.length, 17);
+			assert.ok(ports.every(p => p.command === undefined && p.user === undefined));
+			assert.match(warnings[0], /ps failed, so users and command lines are not shown/);
+		} finally {
+			setLogSink(undefined);
+		}
 	});
 
 	test('treats a non-zero exit with empty output as no ports', async () => {
@@ -71,7 +141,7 @@ suite('LinuxAdapter.listPorts', () => {
 		assert.match(helper?.command ?? '', /\/bin\/node -e /);
 		const hidden = ports.find(p => p.port === 631 && p.address === '127.0.0.1');
 		assert.strictEqual(hidden?.pid, undefined);
-		assert.strictEqual(hidden?.user, UNKNOWN_LABEL);
+		assert.strictEqual(hidden?.user, undefined);
 		assert.strictEqual(hidden?.command, undefined);
 	});
 

@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { parseSs } from '../../../../features/ports/platform/parsers/ss-parser';
-import { UNKNOWN_LABEL } from '../../../../features/ports/port-types';
 import { HELPER, HELPER_PEER } from '../../../fixtures/linux-capture';
 import { linux } from '../../../fixtures/load-fixtures';
 import { brief } from '../../../helpers/rows';
@@ -13,12 +12,12 @@ suite('parseSs (real `ss -ltnp` capture)', () => {
 			[5054, '127.0.0.1', 1695, 'ulauncher'],
 			[45949, '127.0.0.1', 9374, 'code'],
 			[20855, '127.0.0.1', 8227, 'code'],
-			[53, '127.0.0.53', undefined, UNKNOWN_LABEL],
-			[53, '127.0.0.54', undefined, UNKNOWN_LABEL],
+			[53, '127.0.0.53', undefined, undefined],
+			[53, '127.0.0.54', undefined, undefined],
 			[18102, '0.0.0.0', HELPER, 'MainThread'],
 			[18106, '0.0.0.0', HELPER_PEER, 'MainThread'],
 			[18106, '0.0.0.0', HELPER, 'MainThread'],
-			[631, '127.0.0.1', undefined, UNKNOWN_LABEL],
+			[631, '127.0.0.1', undefined, undefined],
 			[18101, '127.0.0.1', HELPER, 'MainThread'],
 			[34331, '127.0.0.1', 8227, 'code'],
 			[43623, '127.0.0.1', 8146, 'code'],
@@ -26,7 +25,7 @@ suite('parseSs (real `ss -ltnp` capture)', () => {
 			[18105, '::', HELPER, 'MainThread'],
 			[18104, '*', HELPER, 'MainThread'],
 			[18103, '::1', HELPER, 'MainThread'],
-			[631, '::1', undefined, UNKNOWN_LABEL],
+			[631, '::1', undefined, undefined],
 		]);
 	});
 
@@ -52,7 +51,7 @@ suite('parseSs (real `ss -ltnp` capture)', () => {
 	test('marks rows with hidden process info as unknown instead of failing', () => {
 		const hidden = ports.filter(p => p.pid === undefined);
 		assert.deepStrictEqual(hidden.map(p => p.port), [53, 53, 631, 631]);
-		assert.ok(hidden.every(p => p.processName === UNKNOWN_LABEL && p.user === UNKNOWN_LABEL));
+		assert.ok(hidden.every(p => p.processName === undefined && p.user === undefined));
 	});
 
 	test('strips the interface suffix of 127.0.0.53%lo', () => {

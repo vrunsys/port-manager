@@ -1,5 +1,5 @@
-import { isValidPort } from '../platform/parsers/parse-host-port';
-import { PortInfo } from '../port-types';
+import { isValidPort } from '../../../shared/port-number';
+import { normalizeProcessName } from '../../../shared/process-names';
 
 /** Must match the settings contributed in package.json. */
 export const SETTINGS_SECTION = 'portManager';
@@ -11,7 +11,7 @@ export const SETTING = {
 	showStatusBar: 'showStatusBar',
 } as const;
 
-export const DEFAULT_REFRESH_INTERVAL_SECONDS = 2;
+const DEFAULT_REFRESH_INTERVAL_SECONDS = 2;
 export const MIN_REFRESH_INTERVAL_SECONDS = 1;
 export const MAX_REFRESH_INTERVAL_SECONDS = 600;
 const MS_PER_SECOND = 1000;
@@ -38,11 +38,6 @@ export const DEFAULT_SETTINGS: PortSettings = {
 	protectedProcesses: [],
 	showStatusBar: true,
 };
-
-/** The comparison form of a process name: case and a ".exe" suffix do not matter. */
-export function normalizeProcessName(name: string): string {
-	return name.trim().toLowerCase().replace(/\.exe$/, '');
-}
 
 function readBoolean(value: unknown, fallback: boolean): boolean {
 	return typeof value === 'boolean' ? value : fallback;
@@ -75,26 +70,4 @@ export function normalizeSettings(get: (key: string) => unknown): PortSettings {
 		protectedProcesses: readProcessNames(get(SETTING.protectedProcesses)),
 		showStatusBar: readBoolean(get(SETTING.showStatusBar), DEFAULT_SETTINGS.showStatusBar),
 	};
-}
-
-/**
- * The executable's file name. `ps` shows "/usr/bin/node server.js", Windows shows a path that may
- * contain spaces, and some daemons rewrite their title ("sshd: user@pts/0").
- */
-function executableName(command: string): string {
-	const executable = /\.exe$/i.test(command.trim()) ? command.trim() : command.trim().split(/\s+/)[0];
-	return normalizeProcessName(executable.replace(/:$/, '').replace(/^.*[\\/]/, ''));
-}
-
-/**
- * Why this port must not be stopped, or undefined if it may be. A process matches by the name the
- * OS reports or by its executable (some runtimes, like node, report a different thread name).
- */
-export function describeProtection(info: PortInfo, settings: PortSettings): string | undefined {
-	if (settings.protectedPorts.includes(info.port)) {
-		return `port ${info.port} is listed in portManager.${SETTING.protectedPorts}`;
-	}
-	const names = [normalizeProcessName(info.processName), info.command ? executableName(info.command) : ''];
-	const match = names.find(name => name !== '' && settings.protectedProcesses.includes(name));
-	return match === undefined ? undefined : `"${match}" is listed in portManager.${SETTING.protectedProcesses}`;
 }

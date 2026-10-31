@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { parseWindowsNetstat } from '../../../../features/ports/platform/parsers/windows-netstat-parser';
-import { UNKNOWN_LABEL } from '../../../../features/ports/port-types';
 import { windows } from '../../../fixtures/load-fixtures';
 import { portsAndPids } from '../../../helpers/rows';
 
@@ -24,7 +23,7 @@ suite('parseWindowsNetstat (English sample)', () => {
 	});
 
 	test('leaves the process name unknown until tasklist is joined', () => {
-		assert.ok(ports.every(p => p.processName === UNKNOWN_LABEL));
+		assert.ok(ports.every(p => p.processName === undefined));
 	});
 
 	test('returns nothing for empty output', () => {

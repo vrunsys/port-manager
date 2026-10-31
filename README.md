@@ -10,8 +10,8 @@ See which processes are listening on local ports, right from the VS Code sidebar
 - **Filter** (search icon in the view's title bar) opens a search box that narrows the list as you type, by port, name, process, PID, address or command; Enter keeps the search, Escape restores the previous one, and a clear button appears while a search is active. **Sort** (sort icon) orders the list by Port, PID or Name; the choice is remembered.
 - **Show Running Only** (filter icon in the title bar) hides the rows whose process Port Manager cannot see, such as other users' services, which would show as "Unknown process". The header says how many are tucked away (`5 running · 3 hidden`), the status bar count follows the list, and the same button switches back to **Show All Ports**. The choice is remembered; by default everything is shown.
 - **Rename** (pencil on each row) gives a port a name such as `frontend`. The name is remembered per port, shown on the row and in the stop confirmation, searchable, and used by **Kill Process on Port…**.
-- A status bar item shows `$(plug) N`, the number of listening ports (the same rows the view lists, so it respects **Show Running Only**). Click it to open the Port Manager view. On an error it keeps the last known count and turns yellow, with the reason in its tooltip.
-- The list refreshes automatically (every 2 seconds by default, see Settings) while the view is visible or the status bar item is shown, and stops polling when neither is on screen. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
+- A status bar item shows `$(plug) N`, the number of listening ports (the same rows the view lists, so it respects **Show Running Only**). It appears as soon as VS Code has finished starting. Click it to open the Port Manager view. On an error it keeps the last known count and turns yellow, with the reason in its tooltip.
+- The list refreshes automatically (every 2 seconds by default, see Settings) while the view is visible or the status bar item is shown, and stops polling when neither is on screen. Polling also pauses while the VS Code window is not focused, and waits at least four times as long as the last scan took, so it stays cheap when a tool is slow. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
 - Row actions, as inline buttons (pencil, open, stop) and in the right-click menu:
   - **Open in Browser** opens `http://localhost:<port>`.
   - **Kill Process** asks for confirmation (process name and PID), then stops the process: a graceful stop first, forced after a few seconds on macOS/Linux, and `taskkill /T /F` on Windows. It shows a clear message if the process is already gone or you lack permission.
@@ -45,6 +45,8 @@ All settings apply immediately, without reloading the window.
 
 Protected rows stay listed but have no Kill button, and their tooltip says why. Kill and **Kill Process on Port…** refuse them even with confirmations switched off.
 
+`confirmBeforeKill`, `protectedPorts` and `protectedProcesses` are *machine-overridable*: set them in your user (or Remote) settings. A workspace's own `.vscode/settings.json` cannot change them, so a cloned repository cannot switch the safety checks off.
+
 ## Safety
 
 Port Manager only stops a process when you ask, and it refuses some processes outright, explaining why:
@@ -52,13 +54,20 @@ Port Manager only stops a process when you ask, and it refuses some processes ou
 - Anything in `portManager.protectedPorts` or `portManager.protectedProcesses`.
 - System processes: PID 0, PID 1, and PID 4 (the Windows System process).
 - The VS Code extension host Port Manager runs in, and the VS Code process that started it.
+- Operating-system critical processes, which no setting can switch off: on Windows `System`, `smss`, `csrss`, `wininit`, `winlogon`, `services`, `lsass` and `svchost`; on macOS `launchd`, `WindowServer`, `loginwindow` and `kernel_task`; on Linux `systemd`, `Xorg`, `Xwayland`, `gnome-shell`, `dbus-daemon` and the display managers.
 - A process owned by another user always asks for confirmation (button **Stop Anyway**) with an explicit warning, even if `portManager.confirmBeforeKill` is off. This needs the owner to be known, so it does not apply on Windows.
 
 Port Manager never elevates privileges on its own. If the OS refuses (`permission denied`), the message tells you what to run yourself: `sudo kill <pid>` on macOS/Linux, or restart VS Code as administrator / use an elevated terminal on Windows.
 
+Right before stopping anything, Port Manager scans again and checks that the same PID still holds the port with the same command, so a recycled PID cannot hit an unrelated process, and it applies these rules a second time. On Windows `taskkill /T` also ends child processes, so ancestors of the extension host are refused, and if the parent chain cannot be read only the process itself is stopped.
+
 ## Remote, WSL and containers
 
 The extension runs where your files are (`"extensionKind": ["workspace"]`), so in Remote - SSH, WSL and Dev Containers it shows and manages the **remote** machine's ports, and **Open in Browser** is forwarded to your computer. Details and reasoning: [docs/remote-and-wsl.md](docs/remote-and-wsl.md).
+
+## Diagnostics
+
+What Port Manager could not do is written to **Output > Port Manager**: a tool that failed and was replaced by the next one (for example `ss` by `lsof`), PowerShell falling back to `netstat` for five minutes, a failing `ps`, and refused stops. If the list looks wrong, look there first.
 
 ## Status
 

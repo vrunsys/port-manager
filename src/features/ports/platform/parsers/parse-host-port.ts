@@ -1,13 +1,8 @@
-const MIN_PORT = 1;
-const MAX_PORT = 65535;
+import { isValidPort } from '../../../../shared/port-number';
 
 export interface HostPort {
 	address: string;
 	port: number;
-}
-
-export function isValidPort(port: unknown): port is number {
-	return typeof port === 'number' && Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
 }
 
 /** Splits "host:port" as printed by ss, lsof and netstat, including "[::1]:80" and ":::22". */

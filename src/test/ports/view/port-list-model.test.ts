@@ -11,14 +11,14 @@ import {
 	sortName,
 	sortPorts,
 } from '../../../features/ports/view/port-list-model';
-import { PortInfo, UNKNOWN_LABEL } from '../../../features/ports/port-types';
+import { PortInfo } from '../../../features/ports/port-types';
 import { LabelSource } from '../../../features/ports/view/port-labels';
 
 function port(overrides: Partial<PortInfo> = {}): PortInfo {
 	return { port: 3000, protocol: 'tcp', address: '127.0.0.1', pid: 100, processName: 'node', user: 'varun', ...overrides };
 }
 
-const hidden = port({ pid: undefined, processName: UNKNOWN_LABEL, user: UNKNOWN_LABEL });
+const hidden = port({ pid: undefined, processName: undefined, user: undefined });
 const noNames: LabelSource = { get: () => undefined };
 const names = (map: Record<number, string>): LabelSource => ({ get: port => map[port] });
 

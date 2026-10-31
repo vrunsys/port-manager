@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { createPortActions, PortActionsService, PortActionsUi } from '../../../features/ports/actions/port-actions';
 import { DEFAULT_SETTINGS, PortSettings } from '../../../features/ports/settings/port-settings';
-import { KillResult, PortInfo, UNKNOWN_LABEL } from '../../../features/ports/port-types';
+import { KillResult, PortInfo } from '../../../features/ports/port-types';
 import { PortsState } from '../../../features/ports/service/ports-service';
 
 function port(overrides: Partial<PortInfo> = {}): PortInfo {
@@ -17,7 +17,7 @@ function port(overrides: Partial<PortInfo> = {}): PortInfo {
 	};
 }
 
-const hidden = port({ pid: undefined, processName: UNKNOWN_LABEL, command: undefined });
+const hidden = port({ pid: undefined, processName: undefined, command: undefined });
 
 interface Confirmation {
 	message: string;
@@ -89,8 +89,10 @@ function fakeKiller(result: KillResult | Error, state: Partial<PortsState> = {})
 		async refresh() {
 			calls.push('refresh');
 		},
-		async killProcess(pid) {
-			killed.push(pid);
+		async killPort(info) {
+			if (info.pid !== undefined) {
+				killed.push(info.pid);
+			}
 			calls.push('kill');
 			if (result instanceof Error) {
 				throw result;

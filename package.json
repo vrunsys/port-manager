@@ -12,7 +12,18 @@
   "extensionKind": [
     "workspace"
   ],
-  "activationEvents": [],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Port Manager lists and stops processes on the machine it runs on, which a virtual workspace does not have."
+    },
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -45,7 +56,8 @@
         "portManager.confirmBeforeKill": {
           "type": "boolean",
           "default": true,
-          "description": "Ask for confirmation before stopping a process."
+          "description": "Ask for confirmation before stopping a process.",
+          "scope": "machine-overridable"
         },
         "portManager.protectedPorts": {
           "type": "array",
@@ -56,7 +68,8 @@
           },
           "uniqueItems": true,
           "default": [],
-          "markdownDescription": "Ports whose processes Port Manager will never stop, e.g. `[22, 5432]`."
+          "markdownDescription": "Ports whose processes Port Manager will never stop, e.g. `[22, 5432]`.",
+          "scope": "machine-overridable"
         },
         "portManager.protectedProcesses": {
           "type": "array",
@@ -65,7 +78,8 @@
           },
           "uniqueItems": true,
           "default": [],
-          "markdownDescription": "Process names Port Manager will never stop, e.g. `[\"sshd\", \"postgres\"]`. Case and `.exe` do not matter; the executable name from the command line is matched too (useful for `node`)."
+          "markdownDescription": "Process names Port Manager will never stop, e.g. `[\"sshd\", \"postgres\"]`. Case and `.exe` do not matter; the executable name from the command line is matched too (useful for `node`).",
+          "scope": "machine-overridable"
         },
         "portManager.showStatusBar": {
           "type": "boolean",
@@ -245,6 +259,14 @@
         {
           "command": "port-manager.clearFilter",
           "when": "portManager.filterActive"
+        },
+        {
+          "command": "port-manager.showRunningOnly",
+          "when": "!portManager.runningOnly"
+        },
+        {
+          "command": "port-manager.showAllPorts",
+          "when": "portManager.runningOnly"
         }
       ]
     }
@@ -264,14 +286,12 @@
   "devDependencies": {
     "@types/node": "24.x",
     "@types/vscode": "^1.140.0",
+    "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
     "vitest": "^5.0.5"
-  },
-  "dependencies": {
-    "@vscode/vsce": "^4.1.0"
   }
 }

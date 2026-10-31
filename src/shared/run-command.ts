@@ -7,6 +7,9 @@ export interface RunCommandOptions {
 	timeoutMs?: number;
 }
 
+/** How the extension runs a program; adapters take one so tests can replace the operating system. */
+export type CommandRunner = (file: string, args: string[], options?: RunCommandOptions) => Promise<string>;
+
 export type CommandFailure = 'not-found' | 'timeout' | 'failed';
 
 /**
@@ -27,6 +30,20 @@ export class CommandError extends Error {
 	}
 }
 
+/**
+ * Unix tools translate their messages (and net-tools even its "LISTEN" column) into the user's language.
+ * Messages are forced to English; the character set is kept so non-ASCII process names survive.
+ */
+export function englishMessagesEnvironment(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = { ...base, LC_MESSAGES: 'C', LANGUAGE: 'C' };
+	if (base.LC_ALL) {
+		// LC_ALL would override LC_MESSAGES, so hand its value to the character-set category instead.
+		env.LC_CTYPE = base.LC_ALL;
+		delete env.LC_ALL;
+	}
+	return env;
+}
+
 function describeFailure(file: string, error: ExecFileException, timeoutMs: number): {
 	failure: CommandFailure;
 	message: string;
@@ -44,7 +61,10 @@ function describeFailure(file: string, error: ExecFileException, timeoutMs: numb
 export function runCommand(file: string, args: string[], options: RunCommandOptions = {}): Promise<string> {
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	return new Promise((resolve, reject) => {
-		execFile(file, args, { timeout: timeoutMs, maxBuffer: MAX_OUTPUT_BYTES }, (error, stdout, stderr) => {
+		const env = process.platform === 'win32' ? process.env : englishMessagesEnvironment(process.env);
+		// windowsHide: without it every spawn from the GUI extension host can flash a console window.
+		const options = { timeout: timeoutMs, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true, env };
+		execFile(file, args, options, (error, stdout, stderr) => {
 			if (!error) {
 				resolve(stdout);
 				return;

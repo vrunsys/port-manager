@@ -7,7 +7,7 @@ export const SORT_MODES: readonly SortMode[] = ['port', 'pid', 'name'];
 export const DEFAULT_SORT: SortMode = 'port';
 
 const SORT_NAMES: Record<SortMode, string> = { port: 'Port', pid: 'PID', name: 'Name' };
-const HIDDEN_PROCESS_NAME = 'Unknown process';
+const UNNAMED_PROCESS = 'Unknown process';
 
 export const isSortMode = (value: unknown): value is SortMode => SORT_MODES.includes(value as SortMode);
 export const sortName = (mode: SortMode): string => SORT_NAMES[mode];
@@ -22,7 +22,7 @@ export function scopePorts(ports: readonly PortInfo[], runningOnly: boolean): Po
 
 /** The name you gave the port, or else the process name. */
 export function rowTitle(info: PortInfo, label: string | undefined): string {
-	return label ?? (info.pid === undefined ? HIDDEN_PROCESS_NAME : info.processName);
+	return label ?? info.processName ?? UNNAMED_PROCESS;
 }
 
 /** The row text: port first, then the name, like the badge and title of a server card. */
@@ -43,7 +43,7 @@ export function rowMeta(info: PortInfo, label: string | undefined): string {
 	if (info.pid === undefined) {
 		return `${formatAddress(info.address)} · process hidden`;
 	}
-	return `${label ? info.processName : formatAddress(info.address)} · pid ${info.pid}`;
+	return `${label ? (info.processName ?? 'unknown process') : formatAddress(info.address)} · pid ${info.pid}`;
 }
 
 /** Every word you type must appear somewhere in the row: port, name, process, PID, address or command. */

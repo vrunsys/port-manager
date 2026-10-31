@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { parseNetstat } from '../../../../features/ports/platform/parsers/netstat-parser';
-import { UNKNOWN_LABEL } from '../../../../features/ports/port-types';
 import { HELPER, HELPER_PEER } from '../../../fixtures/linux-capture';
 import { linux } from '../../../fixtures/load-fixtures';
 import { brief } from '../../../helpers/rows';
@@ -13,12 +12,12 @@ suite('parseNetstat (real `netstat -tlnp` capture)', () => {
 			[5054, '127.0.0.1', 1695, 'python3'],
 			[45949, '127.0.0.1', 9374, 'code'],
 			[20855, '127.0.0.1', 8227, 'Code --standar'],
-			[53, '127.0.0.53', undefined, UNKNOWN_LABEL],
-			[53, '127.0.0.54', undefined, UNKNOWN_LABEL],
+			[53, '127.0.0.53', undefined, undefined],
+			[53, '127.0.0.54', undefined, undefined],
 			[18102, '0.0.0.0', HELPER, 'node'],
 			[18106, '0.0.0.0', HELPER_PEER, 'node'],
 			[18106, '0.0.0.0', HELPER, 'node'],
-			[631, '127.0.0.1', undefined, UNKNOWN_LABEL],
+			[631, '127.0.0.1', undefined, undefined],
 			[18101, '127.0.0.1', HELPER, 'node'],
 			[34331, '127.0.0.1', 8227, 'Code --standar'],
 			[43623, '127.0.0.1', 8146, 'Code --standar'],
@@ -26,7 +25,7 @@ suite('parseNetstat (real `netstat -tlnp` capture)', () => {
 			[18105, '::', HELPER, 'node'],
 			[18104, '::', HELPER, 'node'],
 			[18103, '::1', HELPER, 'node'],
-			[631, '::1', undefined, UNKNOWN_LABEL],
+			[631, '::1', undefined, undefined],
 		]);
 	});
 

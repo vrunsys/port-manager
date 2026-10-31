@@ -1,4 +1,4 @@
-import { PortInfo, UNKNOWN_LABEL } from '../../port-types';
+import { PortInfo } from '../../port-types';
 import { parseHostPort } from './parse-host-port';
 
 // users:(("nginx",pid=812,fd=6),("nginx",pid=813,fd=6))
@@ -18,10 +18,10 @@ export function parseSs(output: string): PortInfo[] {
 		if (!local) {
 			continue;
 		}
-		const base = { ...local, protocol: 'tcp' as const, user: UNKNOWN_LABEL };
+		const base = { ...local, protocol: 'tcp' as const, user: undefined };
 		const processes = [...line.matchAll(PROCESS_PATTERN)];
 		if (processes.length === 0) {
-			ports.push({ ...base, pid: undefined, processName: UNKNOWN_LABEL });
+			ports.push({ ...base, pid: undefined, processName: undefined });
 			continue;
 		}
 		for (const [, processName, pid] of processes) {

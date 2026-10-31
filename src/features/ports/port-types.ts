@@ -1,8 +1,5 @@
 export type PortProtocol = 'tcp' | 'udp';
 
-/** Shown for fields we cannot read, e.g. processes owned by another user. */
-export const UNKNOWN_LABEL = 'unknown';
-
 export interface PortInfo {
 	port: number;
 	protocol: PortProtocol;
@@ -10,8 +7,10 @@ export interface PortInfo {
 	address: string;
 	/** Undefined when the owning process is hidden from us. */
 	pid: number | undefined;
-	processName: string;
-	user: string;
+	/** Undefined when the tool could not tell (hidden process, or a system process without a name). */
+	processName: string | undefined;
+	/** Undefined when the tool does not report it (ss, netstat, PowerShell) or the process is hidden. */
+	user: string | undefined;
 	command?: string;
 	cwd?: string;
 }
@@ -36,4 +35,17 @@ export interface PlatformAdapter {
 	listPorts(): Promise<PortInfo[]>;
 	/** Never rejects for expected outcomes: they come back as a KillResult. */
 	killProcess(pid: number, options?: KillOptions): Promise<KillResult>;
+}
+
+export type PortsErrorKind = 'tool-missing' | 'permission-denied' | 'timeout' | 'unknown';
+
+/** A failure to list ports that an adapter has already understood, so nobody has to guess from text. */
+export class PortListingError extends Error {
+	constructor(
+		message: string,
+		readonly kind: PortsErrorKind,
+	) {
+		super(message);
+		this.name = 'PortListingError';
+	}
 }

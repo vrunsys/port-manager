@@ -1,3 +1,4 @@
+import { errorMessage } from '../../../shared/error-message';
 import { describeViewMessage, EMPTY_MESSAGE } from '../view/port-formatting';
 import { GuardEnvironment } from '../kill/kill-guards';
 import { isOwnedByAnotherUser, whyNotKillable } from '../kill/kill-policy';
@@ -5,6 +6,7 @@ import { DEFAULT_SETTINGS, SettingsSource } from '../settings/port-settings';
 import { KillResult, PortInfo } from '../port-types';
 import { PortsState } from '../service/ports-service';
 import { LabelWriter, normalizeLabel } from '../view/port-labels';
+import { describeProcess, hiddenProcessMessage, protectedMessage, reportKillResult } from './kill-messages';
 
 /** Everything the actions need from the editor, so the logic can be tested without VS Code. */
 export interface PortActionsUi {
@@ -23,12 +25,9 @@ export interface PortActionsUi {
 	withProgress<T>(title: string, task: () => Promise<T>): Promise<T>;
 }
 
-export interface PortKiller {
-	killProcess(pid: number): Promise<KillResult>;
-}
-
-/** What the "kill by port" picker also needs: a current list of ports. */
-export interface PortActionsService extends PortKiller {
+/** What the actions need from the service: a current list of ports, and a verified way to stop one of them. */
+export interface PortActionsService {
+	killPort(info: PortInfo): Promise<KillResult>;
 	readonly state: PortsState;
 	refresh(): Promise<void>;
 }
@@ -47,44 +46,7 @@ const STOP_ANYWAY_LABEL = 'Stop Anyway';
 const NONE_STOPPABLE_MESSAGE =
 	'Listening ports were found, but none can be stopped from here: their processes are hidden or protected.';
 
-function hiddenProcessMessage(info: PortInfo): string {
-	return `Port ${info.port} belongs to a process Port Manager cannot see, so it has no PID to use.`;
-}
-
-function describeProcess(info: PortInfo): string {
-	return `${info.processName} (PID ${info.pid})`;
-}
-
-/** Tells the user how to get the rights themselves; Port Manager never elevates on its own. */
-export function elevationHint(pid: number, platform: NodeJS.Platform): string {
-	const never = 'Port Manager never raises its own privileges.';
-	return platform === 'win32'
-		? `This needs administrator rights. ${never} Restart VS Code with "Run as administrator", or run "taskkill /PID ${pid} /T /F" in an elevated terminal.`
-		: `This needs elevated rights (sudo). ${never} Run "sudo kill ${pid}" in a terminal (add -9 if it ignores that).`;
-}
-
-function reportKillResult(ui: PortActionsUi, info: PortInfo, result: KillResult, platform: NodeJS.Platform): void {
-	switch (result.status) {
-		case 'killed':
-			ui.showStatus(`Stopped ${describeProcess(info)}.`);
-			break;
-		case 'not-found':
-			ui.showWarning(result.message);
-			break;
-		case 'permission-denied':
-			ui.showError(`${result.message} ${elevationHint(info.pid ?? 0, platform)}`);
-			break;
-		case 'failed':
-			ui.showError(result.message);
-			break;
-	}
-}
-
-function protectedMessage(info: PortInfo, reason: string): string {
-	return `Port ${info.port} is protected (${reason}), so Port Manager will not stop it.`;
-}
-
-export interface ActionEnvironment extends GuardEnvironment {
+interface ActionEnvironment extends GuardEnvironment {
 	/** The OS user running VS Code; without it no "another user" warning can be given. */
 	currentUser?: string;
 }
@@ -103,7 +65,7 @@ export function createPortActions(
 		try {
 			await action();
 		} catch (error) {
-			ui.showError(`Port Manager: ${error instanceof Error ? error.message : String(error)}`);
+			ui.showError(`Port Manager: ${errorMessage(error)}`);
 		}
 	};
 
@@ -119,7 +81,6 @@ export function createPortActions(
 				ui.showWarning(hiddenProcessMessage(info));
 				return;
 			}
-			const pid = info.pid;
 			const name = labels.get(info.port);
 			// Another user's process is always confirmed, even when confirmations are switched off.
 			const foreign = isOwnedByAnotherUser(info, environment.currentUser);
@@ -139,7 +100,7 @@ export function createPortActions(
 					return;
 				}
 			}
-			const result = await ui.withProgress(`Stopping ${describeProcess(info)}…`, () => service.killProcess(pid));
+			const result = await ui.withProgress(`Stopping ${describeProcess(info)}…`, () => service.killPort(info));
 			reportKillResult(ui, info, result, platform);
 		});
 

@@ -1,4 +1,4 @@
-import { PortInfo, UNKNOWN_LABEL } from '../../port-types';
+import { PortInfo } from '../../port-types';
 import { parseHostPort } from './parse-host-port';
 
 // "TCP  0.0.0.0:135  0.0.0.0:0  LISTENING  1032" - the state is localized and may be several words
@@ -25,8 +25,8 @@ export function parseWindowsNetstat(output: string): PortInfo[] {
 			...local,
 			protocol: 'tcp',
 			pid: Number(row[3]),
-			processName: UNKNOWN_LABEL,
-			user: UNKNOWN_LABEL,
+			processName: undefined,
+			user: undefined,
 		});
 	}
 	return ports;

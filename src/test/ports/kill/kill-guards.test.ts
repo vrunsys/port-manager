@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { checkKillable, describeSystemProcess } from '../../../features/ports/kill/kill-guards';
-import { linux } from '../../fixtures/load-fixtures';
 
 const OWN = 5000;
 const PARENT = 4000;
