@@ -72,6 +72,27 @@ npm run check-types && npm run lint
 
 Press `F5` in VS Code to launch the Extension Development Host, then open the Port Manager icon in the activity bar.
 
+### Project layout
+
+```
+src/
+  extension.ts                  entry point: wires everything together
+  shared/                       code with no knowledge of ports (running programs)
+  features/ports/
+    port-types.ts               the shared contract (PortInfo, PlatformAdapter, KillResult)
+    service/                    polling, caching, dedupe and error state
+    platform/                   everything that talks to the OS
+      linux/ darwin/ windows/   one adapter per OS
+      parsers/                  pure parsers for each tool's output
+    kill/                       stopping processes and the rules for when not to
+    settings/                   portManager.* settings
+    actions/                    kill, copy, open-in-browser, kill-by-port
+    view/                       tree view, status bar, and the text they show
+  test/                         mirrors src/ (see Tests below)
+```
+
+Only `extension.ts` and the files named `register-*`, `vscode-*` and `ports-tree-provider.ts` import `vscode`; everything else is plain TypeScript and is tested without VS Code.
+
 ### Tests
 
 `npm test` runs every test with [vitest](https://vitest.dev) in plain Node. It needs no VS Code and none of the tools the extension calls (`ss`, `lsof`, `netstat`, `ps`, PowerShell, `tasklist`): the parsers and adapters are tested against saved output in `src/test/fixtures/`, and the adapters' commands are replaced by fakes. The Linux fixtures are real captures; the macOS and Windows ones are hand-built until someone captures them on those systems. See [src/test/fixtures/README.md](src/test/fixtures/README.md) for what is real and how to replace the hand-built files with `scripts/capture-fixtures.js`.

@@ -1,6 +1,6 @@
 import { runCommand, CommandError } from '../../../shared/run-command';
-import { CommandRunner } from '../command-runner';
-import { parseTasklistCsv } from '../parsers/tasklist-parser';
+import { CommandRunner } from '../platform/command-runner';
+import { parseTasklistCsv } from '../platform/parsers/tasklist-parser';
 import { KillResult } from '../port-types';
 import { checkKillable } from './kill-guards';
 import { failed, killed, notFound, permissionDenied } from './kill-results';

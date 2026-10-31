@@ -69,7 +69,7 @@ async function captureMacos() {
 
 async function captureWindows() {
 	const { loadTs } = require('./load-ts');
-	const { POWERSHELL_LIST_ARGS } = loadTs('src/features/ports/windows/powershell-script.ts');
+	const { POWERSHELL_LIST_ARGS } = loadTs('src/features/ports/platform/windows/powershell-script.ts');
 	return {
 		'powershell.json': await capture('powershell.exe', POWERSHELL_LIST_ARGS),
 		'netstat.txt': await capture('netstat', ['-ano']),

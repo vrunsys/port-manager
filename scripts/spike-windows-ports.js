@@ -19,8 +19,8 @@ async function main() {
 	if (process.platform !== 'win32') {
 		throw new Error('This spike must be run on Windows.');
 	}
-	const { POWERSHELL_LIST_ARGS } = loadTs('src/features/ports/windows/powershell-script.ts');
-	const { parsePowerShellPorts } = loadTs('src/features/ports/parsers/powershell-parser.ts');
+	const { POWERSHELL_LIST_ARGS } = loadTs('src/features/ports/platform/windows/powershell-script.ts');
+	const { parsePowerShellPorts } = loadTs('src/features/ports/platform/parsers/powershell-parser.ts');
 	const timings = [];
 	let stdout = '';
 	for (let i = 0; i < RUNS; i++) {

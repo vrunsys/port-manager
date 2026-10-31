@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
-import { createPlatformAdapter } from './features/ports/platform-adapter-factory';
-import { PollingDemand } from './features/ports/polling-demand';
+import { createPlatformAdapter } from './features/ports/platform/platform-adapter-factory';
+import { PollingDemand } from './features/ports/service/polling-demand';
 import { PlatformAdapter } from './features/ports/port-types';
-import { PortsService } from './features/ports/ports-service';
-import { registerPortActions } from './features/ports/register-port-actions';
-import { registerPortsView } from './features/ports/register-ports-view';
-import { registerStatusBar } from './features/ports/register-status-bar';
-import { UnsupportedAdapter } from './features/ports/unsupported-adapter';
-import { VscodeSettings } from './features/ports/vscode-settings';
+import { PortsService } from './features/ports/service/ports-service';
+import { registerPortActions } from './features/ports/actions/register-port-actions';
+import { registerPortsView } from './features/ports/view/register-ports-view';
+import { registerStatusBar } from './features/ports/view/register-status-bar';
+import { UnsupportedAdapter } from './features/ports/platform/unsupported-adapter';
+import { VscodeSettings } from './features/ports/settings/vscode-settings';
 
 function createAdapter(): PlatformAdapter {
 	try {

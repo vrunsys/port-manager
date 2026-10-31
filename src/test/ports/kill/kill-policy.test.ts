@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { isOwnedByAnotherUser, whyNotKillable } from '../../../features/ports/kill/kill-policy';
-import { LinuxAdapter } from '../../../features/ports/linux/linux-adapter';
-import { DEFAULT_SETTINGS, normalizeSettings } from '../../../features/ports/port-settings';
+import { LinuxAdapter } from '../../../features/ports/platform/linux/linux-adapter';
+import { DEFAULT_SETTINGS, normalizeSettings } from '../../../features/ports/settings/port-settings';
 import { PortInfo, UNKNOWN_LABEL } from '../../../features/ports/port-types';
 import { linux } from '../../fixtures/load-fixtures';
 

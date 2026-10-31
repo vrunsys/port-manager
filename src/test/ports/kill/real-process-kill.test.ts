@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { ChildProcess, spawn } from 'child_process';
-import { createPlatformAdapter } from '../../../features/ports/platform-adapter-factory';
+import { createPlatformAdapter } from '../../../features/ports/platform/platform-adapter-factory';
 
 const STAY_ALIVE = 'setInterval(() => {}, 1000);';
 const IGNORE_SIGTERM = `process.on('SIGTERM', () => {}); ${STAY_ALIVE}`;

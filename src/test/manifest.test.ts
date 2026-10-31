@@ -7,8 +7,8 @@ import {
 	MIN_REFRESH_INTERVAL_SECONDS,
 	SETTING,
 	SETTINGS_SECTION,
-} from '../features/ports/port-settings';
-import { ITEM_COMMAND, REFRESH_COMMAND } from '../features/ports/view-constants';
+} from '../features/ports/settings/port-settings';
+import { ITEM_COMMAND, REFRESH_COMMAND } from '../features/ports/view/view-constants';
 
 const COMMAND_IDS = [REFRESH_COMMAND, ...Object.values(ITEM_COMMAND)];
 

@@ -1,4 +1,4 @@
-import { describeProtection, PortSettings } from '../port-settings';
+import { describeProtection, PortSettings } from '../settings/port-settings';
 import { PortInfo, UNKNOWN_LABEL } from '../port-types';
 import { describeSystemProcess, GuardEnvironment } from './kill-guards';
 
