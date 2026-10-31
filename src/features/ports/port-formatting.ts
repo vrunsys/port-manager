@@ -55,6 +55,26 @@ export function buildPortTooltip(info: PortInfo): string {
 	return sections.filter(section => section !== undefined).join('\n\n');
 }
 
+export interface StatusBarView {
+	text: string;
+	tooltip: string;
+	/** True when the latest scan failed, so the item can stand out. */
+	warning: boolean;
+}
+
+/** The status bar shows exactly the rows the tree shows, so the two cannot disagree. */
+export function describeStatusBar(state: PortsState): StatusBarView {
+	if (!state.loaded) {
+		return { text: '$(plug) …', tooltip: SCANNING_MESSAGE, warning: false };
+	}
+	const count = state.ports.length;
+	const summary = `${count} listening ${count === 1 ? 'port' : 'ports'}. Click to open Port Manager.`;
+	if (state.error) {
+		return { text: `$(plug) ${count}`, tooltip: `${ERROR_HEADLINE[state.error.kind]} ${state.error.message}\n${summary}`, warning: true };
+	}
+	return { text: `$(plug) ${count}`, tooltip: summary, warning: false };
+}
+
 /** The text shown above the tree for the loading, empty and error states; undefined when there is nothing to say. */
 export function describeViewMessage(state: PortsState): string | undefined {
 	if (!state.loaded) {

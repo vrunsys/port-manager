@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import {
 	buildPortTooltip,
+	describeStatusBar,
 	describeViewMessage,
 	EMPTY_MESSAGE,
 	formatPortDescription,
@@ -101,6 +102,47 @@ suite('describeViewMessage', () => {
 	test('mentions the last known list when an error leaves stale ports', () => {
 		const message = describeViewMessage(loaded({ error: { kind: 'timeout', message: 'ss did not finish.' } }));
 		assert.strictEqual(message, 'Timed out. ss did not finish. Showing the last known list.');
+	});
+});
+
+suite('describeStatusBar', () => {
+	const state = (overrides: Partial<PortsState> = {}): PortsState => ({
+		ports: [port(), port({ port: 4000 })],
+		loaded: true,
+		error: undefined,
+		...overrides,
+	});
+
+	test('shows the plug icon and the number of ports', () => {
+		const view = describeStatusBar(state());
+		assert.strictEqual(view.text, '$(plug) 2');
+		assert.strictEqual(view.tooltip, '2 listening ports. Click to open Port Manager.');
+		assert.strictEqual(view.warning, false);
+	});
+
+	test('uses the singular for one port and shows zero for none', () => {
+		assert.match(describeStatusBar(state({ ports: [port()] })).tooltip, /^1 listening port\./);
+		assert.strictEqual(describeStatusBar(state({ ports: [] })).text, '$(plug) 0');
+	});
+
+	test('shows an ellipsis before the first scan has finished', () => {
+		const view = describeStatusBar({ ports: [], loaded: false, error: undefined });
+		assert.strictEqual(view.text, '$(plug) …');
+		assert.strictEqual(view.tooltip, SCANNING_MESSAGE);
+	});
+
+	test('keeps the last known count on an error, flags a warning and explains in the tooltip', () => {
+		const view = describeStatusBar(state({ error: { kind: 'timeout', message: 'ss did not finish.' } }));
+		assert.strictEqual(view.text, '$(plug) 2');
+		assert.strictEqual(view.warning, true);
+		assert.match(view.tooltip, /^Timed out\. ss did not finish\.\n2 listening ports/);
+	});
+
+	test('always counts the same rows the tree shows', () => {
+		for (const ports of [[], [port()], [port(), port({ port: 1 }), hidden]]) {
+			const count = describeStatusBar(state({ ports })).text.replace('$(plug) ', '');
+			assert.strictEqual(count, String(ports.length));
+		}
 	});
 });
 

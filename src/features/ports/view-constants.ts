@@ -1,6 +1,11 @@
 /** Must match the ids contributed in package.json. */
 export const VIEW_ID = 'port-manager.ports';
 export const REFRESH_COMMAND = 'port-manager.refresh';
+/** VS Code creates "<view id>.focus" for every contributed view. */
+export const FOCUS_VIEW_COMMAND = `${VIEW_ID}.focus`;
+
+export const SETTINGS_SECTION = 'port-manager';
+export const SHOW_STATUS_BAR_SETTING = 'showStatusBar';
 
 export const ITEM_COMMAND = {
 	kill: 'port-manager.kill',
