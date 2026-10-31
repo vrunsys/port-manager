@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { createPortActions, PortActionsService, PortActionsUi } from '../features/ports/port-actions';
+import { DEFAULT_SETTINGS, PortSettings } from '../features/ports/port-settings';
 import { KillResult, PortInfo, UNKNOWN_LABEL } from '../features/ports/port-types';
 import { PortsState } from '../features/ports/ports-service';
 
@@ -237,8 +238,121 @@ suite('killByPort action', () => {
 	test('explains when every port belongs to a hidden process', async () => {
 		const { ui, log } = fakeUi();
 		await createPortActions(fakeKiller(killedResult, { ports: [hidden] }).killer, ui).killByPort();
-		assert.match(log.warnings[0], /processes are hidden/);
+		assert.match(log.warnings[0], /hidden or protected/);
 		assert.deepStrictEqual(log.offered, []);
+	});
+});
+
+/** Settings the test can change between calls, to prove they are read live. */
+function liveSettings(initial: Partial<PortSettings> = {}) {
+	let current: PortSettings = { ...DEFAULT_SETTINGS, ...initial };
+	return {
+		get: () => current,
+		update: (changes: Partial<PortSettings>) => void (current = { ...current, ...changes }),
+	};
+}
+
+suite('confirmBeforeKill setting', () => {
+	test('skips the confirmation and stops the process straight away when off', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui, liveSettings({ confirmBeforeKill: false })).kill(port());
+		assert.deepStrictEqual(log.confirmations, []);
+		assert.deepStrictEqual(killed, [4242]);
+		assert.deepStrictEqual(log.status, ['Stopped node (PID 4242).']);
+	});
+
+	test('asks when on, and applies a change made after the actions were created', async () => {
+		const { ui, log } = fakeUi({ confirms: false });
+		const { killer, killed } = fakeKiller(killedResult);
+		const settings = liveSettings();
+		const actions = createPortActions(killer, ui, settings);
+
+		await actions.kill(port());
+		assert.strictEqual(log.confirmations.length, 1);
+		assert.deepStrictEqual(killed, []);
+
+		settings.update({ confirmBeforeKill: false });
+		await actions.kill(port());
+		assert.strictEqual(log.confirmations.length, 1);
+		assert.deepStrictEqual(killed, [4242]);
+	});
+
+	test('also skips the confirmation for kill-by-port', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult, { ports: [port()] });
+		await createPortActions(killer, ui, liveSettings({ confirmBeforeKill: false })).killByPort();
+		assert.deepStrictEqual(log.confirmations, []);
+		assert.deepStrictEqual(killed, [4242]);
+	});
+});
+
+suite('protected ports and processes', () => {
+	test('refuses to stop a protected port, without asking, and says why', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui, liveSettings({ protectedPorts: [3000] })).kill(port());
+		assert.deepStrictEqual(killed, []);
+		assert.deepStrictEqual(log.confirmations, []);
+		assert.deepStrictEqual(log.warnings, [
+			'Port 3000 is protected (port 3000 is listed in portManager.protectedPorts), so Port Manager will not stop it.',
+		]);
+	});
+
+	test('refuses to stop a protected process', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui, liveSettings({ protectedProcesses: ['node'] })).kill(port());
+		assert.deepStrictEqual(killed, []);
+		assert.match(log.warnings[0], /portManager\.protectedProcesses/);
+	});
+
+	test('protection wins even when confirmations are switched off', async () => {
+		const { ui } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		const settings = liveSettings({ confirmBeforeKill: false, protectedPorts: [3000] });
+		await createPortActions(killer, ui, settings).kill(port());
+		assert.deepStrictEqual(killed, []);
+	});
+
+	test('applies a protection added after the picker listed the port', async () => {
+		const settings = liveSettings();
+		const { ui, log } = fakeUi({
+			pick: ports => {
+				settings.update({ protectedPorts: [3000] });
+				return ports[0];
+			},
+		});
+		const { killer, killed } = fakeKiller(killedResult, { ports: [port()] });
+		await createPortActions(killer, ui, settings).killByPort();
+		assert.deepStrictEqual(killed, []);
+		assert.match(log.warnings[0], /is protected/);
+	});
+
+	test('does not offer protected ports in the kill-by-port picker', async () => {
+		const { ui, log } = fakeUi({ pick: () => undefined });
+		const ports = [port({ port: 22, pid: 1, processName: 'sshd' }), port({ port: 3000 })];
+		const { killer } = fakeKiller(killedResult, { ports });
+		await createPortActions(killer, ui, liveSettings({ protectedPorts: [22] })).killByPort();
+		assert.deepStrictEqual(log.offered.map(p => p.port), [3000]);
+	});
+
+	test('says nothing can be stopped when every port is protected', async () => {
+		const { ui, log } = fakeUi();
+		const { killer } = fakeKiller(killedResult, { ports: [port()] });
+		await createPortActions(killer, ui, liveSettings({ protectedPorts: [3000] })).killByPort();
+		assert.match(log.warnings[0], /hidden or protected/);
+		assert.deepStrictEqual(log.offered, []);
+	});
+
+	test('still allows copying and opening a protected port', async () => {
+		const { ui, log } = fakeUi();
+		const actions = createPortActions(fakeKiller(killedResult).killer, ui, liveSettings({ protectedPorts: [3000] }));
+		await actions.copyPort(port());
+		await actions.copyPid(port());
+		await actions.openInBrowser(port());
+		assert.deepStrictEqual(log.copied, ['3000', '4242']);
+		assert.deepStrictEqual(log.opened, ['http://localhost:3000']);
 	});
 });
 

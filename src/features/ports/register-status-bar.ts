@@ -1,18 +1,20 @@
 import * as vscode from 'vscode';
 import { describeStatusBar } from './port-formatting';
 import { PollingDemand } from './polling-demand';
+import { SettingsSource } from './port-settings';
 import { PortsService } from './ports-service';
-import { FOCUS_VIEW_COMMAND, SETTINGS_SECTION, SHOW_STATUS_BAR_SETTING } from './view-constants';
+import { FOCUS_VIEW_COMMAND } from './view-constants';
 
 const STATUS_BAR_ID = 'port-manager.status';
 const STATUS_BAR_PRIORITY = 100;
 const WARNING_BACKGROUND = new vscode.ThemeColor('statusBarItem.warningBackground');
 
-const isEnabled = (): boolean =>
-	vscode.workspace.getConfiguration(SETTINGS_SECTION).get<boolean>(SHOW_STATUS_BAR_SETTING, true);
-
 /** Shows "$(plug) N" in the status bar; clicking it focuses the Port Manager view. */
-export function registerStatusBar(service: PortsService, demand: PollingDemand): vscode.Disposable {
+export function registerStatusBar(
+	service: PortsService,
+	demand: PollingDemand,
+	settings: Pick<SettingsSource, 'get' | 'onDidChange'>,
+): vscode.Disposable {
 	const item = vscode.window.createStatusBarItem(STATUS_BAR_ID, vscode.StatusBarAlignment.Left, STATUS_BAR_PRIORITY);
 	item.name = 'Port Manager';
 	item.command = FOCUS_VIEW_COMMAND;
@@ -25,7 +27,7 @@ export function registerStatusBar(service: PortsService, demand: PollingDemand):
 	};
 
 	const applySetting = () => {
-		const show = isEnabled();
+		const show = settings.get().showStatusBar;
 		if (show) {
 			render();
 			item.show();
@@ -37,13 +39,5 @@ export function registerStatusBar(service: PortsService, demand: PollingDemand):
 	};
 	applySetting();
 
-	return vscode.Disposable.from(
-		item,
-		service.onDidChange(render),
-		vscode.workspace.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration(`${SETTINGS_SECTION}.${SHOW_STATUS_BAR_SETTING}`)) {
-				applySetting();
-			}
-		}),
-	);
+	return vscode.Disposable.from(item, service.onDidChange(render), settings.onDidChange(applySetting));
 }

@@ -4,9 +4,6 @@ export const REFRESH_COMMAND = 'port-manager.refresh';
 /** VS Code creates "<view id>.focus" for every contributed view. */
 export const FOCUS_VIEW_COMMAND = `${VIEW_ID}.focus`;
 
-export const SETTINGS_SECTION = 'port-manager';
-export const SHOW_STATUS_BAR_SETTING = 'showStatusBar';
-
 export const ITEM_COMMAND = {
 	kill: 'port-manager.kill',
 	killByPort: 'port-manager.killByPort',
@@ -15,8 +12,9 @@ export const ITEM_COMMAND = {
 	openInBrowser: 'port-manager.openInBrowser',
 } as const;
 
-/** Menus use these to hide actions that need a PID on rows whose process is hidden. */
+/** Menus use these to hide Kill on protected rows and PID actions on rows whose process is hidden. */
 export const CONTEXT_VALUE = {
 	port: 'port',
 	hiddenProcess: 'port-hidden',
+	protectedPort: 'port-protected',
 } as const;

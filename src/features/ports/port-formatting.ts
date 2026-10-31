@@ -39,7 +39,7 @@ function asCode(text: string, block: boolean): string {
 }
 
 /** Markdown for the hover tooltip, including the full command and bind address. */
-export function buildPortTooltip(info: PortInfo): string {
+export function buildPortTooltip(info: PortInfo, protection?: string): string {
 	const process =
 		info.pid === undefined
 			? 'Process: hidden (it probably belongs to another user)'
@@ -51,6 +51,7 @@ export function buildPortTooltip(info: PortInfo): string {
 		info.user === UNKNOWN_LABEL ? undefined : `User: ${asCode(info.user, false)}`,
 		info.command ? `Command:\n${asCode(info.command, true)}` : undefined,
 		info.cwd ? `Working directory: ${asCode(info.cwd, false)}` : undefined,
+		protection ? `**Protected:** ${protection}. Port Manager will not stop it.` : undefined,
 	];
 	return sections.filter(section => section !== undefined).join('\n\n');
 }

@@ -7,7 +7,7 @@ See which processes are listening on local ports, right from the VS Code sidebar
 - **Port Manager** activity bar icon with a **Listening Ports** view.
 - Each row shows the port, protocol, process name, PID and user. Hover a row for the bind address, full command line and working directory (when known).
 - A status bar item shows `$(plug) N`, the number of listening ports (the same rows the view lists). Click it to open the Port Manager view. On an error it keeps the last known count and turns yellow, with the reason in its tooltip.
-- The list refreshes automatically every 2 seconds while the view is visible or the status bar item is shown, and stops polling when neither is on screen. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
+- The list refreshes automatically (every 2 seconds by default, see Settings) while the view is visible or the status bar item is shown, and stops polling when neither is on screen. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
 - Row actions, as inline buttons and in the right-click menu:
   - **Open in Browser** opens `http://localhost:<port>`.
   - **Kill Process** asks for confirmation (process name and PID), then stops the process: a graceful stop first, forced after a few seconds on macOS/Linux, and `taskkill /T /F` on Windows. It shows a clear message if the process is already gone or you lack permission.
@@ -29,15 +29,22 @@ Processes owned by other users may be hidden unless VS Code runs with enough pri
 
 ## Settings
 
+All settings apply immediately, without reloading the window.
+
 | Setting | Default | |
 |---|---|---|
-| `port-manager.showStatusBar` | `true` | Show the port count in the status bar. Turning it off also stops background polling when the view is closed. |
+| `portManager.refreshInterval` | `2` | Seconds between scans while the view or status bar item is on screen. Minimum 1. |
+| `portManager.confirmBeforeKill` | `true` | Ask for confirmation before stopping a process. |
+| `portManager.protectedPorts` | `[]` | Ports that can never be stopped from the extension, e.g. `[22, 5432]`. |
+| `portManager.protectedProcesses` | `[]` | Process names that can never be stopped, e.g. `["sshd", "postgres"]`. Case and `.exe` are ignored, and the executable name from the command line is matched too (so `node` works even where the OS reports a thread name). |
+| `portManager.showStatusBar` | `true` | Show the port count in the status bar. Turning it off also stops background polling when the view is closed. |
+
+Protected rows stay listed but have no Kill button, and their tooltip says why. Kill and **Kill Process on Port…** refuse them even with confirmations switched off.
 
 ## Status
 
-Early development. Not yet available:
+Early development. Known limitations:
 
-- A setting for the refresh interval.
 - Windows support has only been tested against sample output, not on a real Windows machine. `scripts/spike-windows-ports.js` measures the PowerShell path on Windows.
 
 ## Development

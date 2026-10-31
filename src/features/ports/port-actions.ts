@@ -1,4 +1,5 @@
 import { describeViewMessage, EMPTY_MESSAGE } from './port-formatting';
+import { DEFAULT_SETTINGS, describeProtection, SettingsSource } from './port-settings';
 import { KillResult, PortInfo } from './port-types';
 import { PortsState } from './ports-service';
 
@@ -37,7 +38,8 @@ export interface PortActions {
 
 const STOP_LABEL = 'Stop Process';
 const ELEVATION_HINT = 'Try stopping it from a terminal with elevated privileges (sudo, or Run as administrator).';
-const ONLY_HIDDEN_MESSAGE = 'Listening ports were found, but their processes are hidden, so none can be stopped from here.';
+const NONE_STOPPABLE_MESSAGE =
+	'Listening ports were found, but none can be stopped from here: their processes are hidden or protected.';
 
 function hiddenProcessMessage(info: PortInfo): string {
 	return `Port ${info.port} belongs to a process Port Manager cannot see, so it has no PID to use.`;
@@ -64,7 +66,16 @@ function reportKillResult(ui: PortActionsUi, info: PortInfo, result: KillResult)
 	}
 }
 
-export function createPortActions(service: PortActionsService, ui: PortActionsUi): PortActions {
+function protectedMessage(info: PortInfo, reason: string): string {
+	return `Port ${info.port} is protected (${reason}), so Port Manager will not stop it.`;
+}
+
+/** `settings` is read at the moment of each action, so changes apply immediately. */
+export function createPortActions(
+	service: PortActionsService,
+	ui: PortActionsUi,
+	settings: Pick<SettingsSource, 'get'> = { get: () => DEFAULT_SETTINGS },
+): PortActions {
 	/** Turns an unexpected exception into a readable message instead of a raw command failure. */
 	const safely = async (action: () => Promise<void>): Promise<void> => {
 		try {
@@ -76,6 +87,12 @@ export function createPortActions(service: PortActionsService, ui: PortActionsUi
 
 	const kill = (info: PortInfo): Promise<void> =>
 		safely(async () => {
+			const current = settings.get();
+			const protection = describeProtection(info, current);
+			if (protection) {
+				ui.showWarning(protectedMessage(info, protection));
+				return;
+			}
 			if (info.pid === undefined) {
 				ui.showWarning(hiddenProcessMessage(info));
 				return;
@@ -84,7 +101,7 @@ export function createPortActions(service: PortActionsService, ui: PortActionsUi
 			const detail = [`Listening on port ${info.port}.`, info.command && `Command: ${info.command}`]
 				.filter(Boolean)
 				.join('\n\n');
-			if (!(await ui.confirm(`Stop ${describeProcess(info)}?`, detail, STOP_LABEL))) {
+			if (current.confirmBeforeKill && !(await ui.confirm(`Stop ${describeProcess(info)}?`, detail, STOP_LABEL))) {
 				return;
 			}
 			const result = await ui.withProgress(`Stopping ${describeProcess(info)}…`, () => service.killProcess(pid));
@@ -96,9 +113,10 @@ export function createPortActions(service: PortActionsService, ui: PortActionsUi
 			// The view may be hidden, in which case nothing has been polling.
 			await service.refresh();
 			const { ports } = service.state;
-			const killable = ports.filter(info => info.pid !== undefined);
+			const current = settings.get();
+			const killable = ports.filter(info => info.pid !== undefined && !describeProtection(info, current));
 			if (killable.length === 0) {
-				ui.showWarning(ports.length > 0 ? ONLY_HIDDEN_MESSAGE : (describeViewMessage(service.state) ?? EMPTY_MESSAGE));
+				ui.showWarning(ports.length > 0 ? NONE_STOPPABLE_MESSAGE : (describeViewMessage(service.state) ?? EMPTY_MESSAGE));
 				return;
 			}
 			const chosen = await ui.pickPort(killable);

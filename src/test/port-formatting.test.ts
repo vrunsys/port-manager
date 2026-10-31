@@ -59,6 +59,12 @@ suite('buildPortTooltip', () => {
 		assert.doesNotMatch(tooltip, /User:/);
 	});
 
+	test('says why a port is protected', () => {
+		const tooltip = buildPortTooltip(port(), 'port 3000 is listed in portManager.protectedPorts');
+		assert.match(tooltip, /\*\*Protected:\*\* port 3000 is listed in portManager\.protectedPorts\./);
+		assert.doesNotMatch(buildPortTooltip(port()), /Protected/);
+	});
+
 	test('uses a longer fence when the command contains backticks', () => {
 		const tooltip = buildPortTooltip(port({ command: 'sh -c "echo ```"' }));
 		assert.match(tooltip, /````\nsh -c "echo ```"\n````/);

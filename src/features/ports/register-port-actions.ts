@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { createPortActions, PortActions, PortActionsService, PortActionsUi } from './port-actions';
 import { formatPortDescription, formatPortLabel } from './port-formatting';
+import { SettingsSource } from './port-settings';
 import { PortInfo } from './port-types';
 import { PortItem } from './ports-tree-provider';
 import { ITEM_COMMAND } from './view-constants';
@@ -43,8 +44,8 @@ function onRow(action: (info: PortInfo) => Promise<void>) {
 	return (item?: PortItem) => (item ? action(item.info) : undefined);
 }
 
-export function registerPortActions(service: PortActionsService): vscode.Disposable {
-	const actions: PortActions = createPortActions(service, vscodeUi);
+export function registerPortActions(service: PortActionsService, settings: Pick<SettingsSource, 'get'>): vscode.Disposable {
+	const actions: PortActions = createPortActions(service, vscodeUi, settings);
 	return vscode.Disposable.from(
 		vscode.commands.registerCommand(ITEM_COMMAND.killByPort, () => actions.killByPort()),
 		vscode.commands.registerCommand(ITEM_COMMAND.kill, onRow(actions.kill)),

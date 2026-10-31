@@ -32,7 +32,39 @@
     "configuration": {
       "title": "Port Manager",
       "properties": {
-        "port-manager.showStatusBar": {
+        "portManager.refreshInterval": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 600,
+          "description": "Seconds between port scans while the Port Manager view or status bar item is on screen. Minimum 1."
+        },
+        "portManager.confirmBeforeKill": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before stopping a process."
+        },
+        "portManager.protectedPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "uniqueItems": true,
+          "default": [],
+          "markdownDescription": "Ports whose processes Port Manager will never stop, e.g. `[22, 5432]`."
+        },
+        "portManager.protectedProcesses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "default": [],
+          "markdownDescription": "Process names Port Manager will never stop, e.g. `[\"sshd\", \"postgres\"]`. Case and `.exe` do not matter; the executable name from the command line is matched too (useful for `node`)."
+        },
+        "portManager.showStatusBar": {
           "type": "boolean",
           "default": true,
           "description": "Show the number of listening ports in the status bar. Click it to open the Port Manager view."
@@ -106,7 +138,7 @@
         },
         {
           "command": "port-manager.copyPid",
-          "when": "view == port-manager.ports && viewItem == port",
+          "when": "view == port-manager.ports && viewItem != port-hidden",
           "group": "2_copy@2"
         },
         {
@@ -116,10 +148,22 @@
         }
       ],
       "commandPalette": [
-        { "command": "port-manager.kill", "when": "false" },
-        { "command": "port-manager.copyPort", "when": "false" },
-        { "command": "port-manager.copyPid", "when": "false" },
-        { "command": "port-manager.openInBrowser", "when": "false" }
+        {
+          "command": "port-manager.kill",
+          "when": "false"
+        },
+        {
+          "command": "port-manager.copyPort",
+          "when": "false"
+        },
+        {
+          "command": "port-manager.copyPid",
+          "when": "false"
+        },
+        {
+          "command": "port-manager.openInBrowser",
+          "when": "false"
+        }
       ]
     }
   },

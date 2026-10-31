@@ -1,13 +1,18 @@
 import * as vscode from 'vscode';
 import { describeViewMessage } from './port-formatting';
 import { PollingDemand } from './polling-demand';
+import { SettingsSource } from './port-settings';
 import { PortsService } from './ports-service';
 import { PortsTreeProvider } from './ports-tree-provider';
 import { REFRESH_COMMAND, VIEW_ID } from './view-constants';
 
 /** Shows the service's ports in the sidebar and asks for polling while the view is visible. */
-export function registerPortsView(service: PortsService, demand: PollingDemand): vscode.Disposable {
-	const provider = new PortsTreeProvider(service);
+export function registerPortsView(
+	service: PortsService,
+	demand: PollingDemand,
+	settings: Pick<SettingsSource, 'get' | 'onDidChange'>,
+): vscode.Disposable {
+	const provider = new PortsTreeProvider(service, settings);
 	const treeView = vscode.window.createTreeView(VIEW_ID, { treeDataProvider: provider });
 
 	const updateMessage = () => {
