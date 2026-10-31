@@ -113,7 +113,7 @@ Only `extension.ts` and the files named `register-*`, `vscode-*` and `ports-tree
 
 **Where tests go.** `src/test/` mirrors the source: the test for `src/features/ports/kill/unix-kill.ts` is `src/test/ports/kill/unix-kill.test.ts`, and for `src/shared/run-command.ts` it is `src/test/shared/run-command.test.ts`. One test file per source module. Saved tool output lives in `src/test/fixtures/`, small shared helpers in `src/test/helpers/`, and checks that need the real operating system in `src/integration/`.
 
-A few tests start and stop real child processes to check the kill logic (signals on macOS/Linux, `taskkill` on Windows); they only touch processes they create themselves.
+The kill logic is tested against fakes in `npm test`; the real thing (signals on macOS/Linux, `taskkill` and PowerShell on Windows) is checked by `npm run test:integration`, which only touches processes it starts itself.
 
 ### Integration check and CI
 
@@ -121,7 +121,7 @@ A few tests start and stop real child processes to check the kill logic (signals
 npm run test:integration
 ```
 
-Starts a throwaway server on a free loopback port, then uses this machine's real tools (`ss`/`lsof`/`netstat`/`ps` on Linux, `lsof`/`ps` on macOS, PowerShell/`netstat`/`tasklist` on Windows) to list ports, find it, kill it, and confirm it is gone. It is separate from `npm test` because it needs those tools.
+Starts a throwaway server on a free loopback port, then uses this machine's real tools (`ss`/`lsof`/`netstat`/`ps` on Linux, `lsof`/`ps` on macOS, PowerShell/`netstat`/`tasklist` on Windows) to list ports, find it, kill it, and confirm it is gone. It is separate from `npm test` because it needs those tools. It also stops real child processes: one that exits when asked, one that ignores SIGTERM and needs SIGKILL (not on Windows), one that has already exited, and it checks that Port Manager refuses to stop its own process.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check, build, `npm test` and the integration check on `ubuntu-latest`, `macos-latest` and `windows-latest` for every pull request and every push to `main`. A push to `main` that passes also builds `port-manager.vsix` and uploads it as the `port-manager-vsix` artifact.
 

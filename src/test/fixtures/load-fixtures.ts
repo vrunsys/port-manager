@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Tests run from the project root (`npm test`).
-const FIXTURE_DIR = path.join(process.cwd(), 'src', 'test', 'fixtures');
+// This file sits in the fixtures folder, so it finds them wherever the tests were started from.
+const FIXTURE_DIR = __dirname;
 
 export function fixture(relativePath: string): string {
 	return fs.readFileSync(path.join(FIXTURE_DIR, relativePath), 'utf8');

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { ChildProcess, spawn } from 'child_process';
-import { createPlatformAdapter } from '../../../features/ports/platform/platform-adapter-factory';
+import { createPlatformAdapter } from '../features/ports/platform/platform-adapter-factory';
 
 const STAY_ALIVE = 'setInterval(() => {}, 1000);';
 const IGNORE_SIGTERM = `process.on('SIGTERM', () => {}); ${STAY_ALIVE}`;
@@ -26,7 +26,10 @@ async function startChild(setup: string): Promise<{ child: ChildProcess; exited:
 	return { child, exited };
 }
 
-/** These really kill processes, on whichever OS runs the suite (taskkill on Windows, signals elsewhere). */
+/**
+ * These really kill processes, on whichever OS runs them: signals on macOS and Linux, taskkill and PowerShell on
+ * Windows. They live here, not in src/test, so that `npm test` needs no operating-system tools.
+ */
 suite('killProcess with a real process', { timeout: TEST_TIMEOUT_MS }, () => {
 	const adapter = createPlatformAdapter();
 	let running: ChildProcess | undefined;
