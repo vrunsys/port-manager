@@ -13,4 +13,6 @@ All notable changes to the "port-manager" extension will be documented in this f
 - Polling service that skips overlapping scans, merges IPv4/IPv6 duplicates and only notifies on real changes.
 - Row actions: kill process (with confirmation), copy port, copy PID, open in browser.
 - "Kill Process on Port…" command: quick pick of current ports, filterable by port number or process name.
+- Fixed Windows `netstat` parsing on systems whose "listening" label has several words (for example Italian "IN ASCOLTO"), which previously found no ports.
+- Tests run with vitest and saved tool output (`npm test` needs no VS Code or OS tools); `scripts/capture-fixtures.js` records real fixtures.
 - Cross-platform process kill: graceful then forced on macOS/Linux, `taskkill /T /F` on Windows, with typed results.

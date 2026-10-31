@@ -1,0 +1,6 @@
+    1 root             /sbin/launchd
+  412 varun            /usr/libexec/rapportd
+  498 varun            /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+ 1203 varun            /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222
+ 5521 varun            node server.js --port 3000
+ 7788 _postgres        /opt/homebrew/opt/postgresql@16/bin/postgres -D /opt/homebrew/var/postgresql@16

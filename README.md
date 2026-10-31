@@ -66,10 +66,16 @@ Early development. Known limitations:
 
 ```
 npm install
-npm run compile-tests   # build tests into out/
+npm test                          # unit tests (vitest)
 npm run check-types && npm run lint
 ```
 
 Press `F5` in VS Code to launch the Extension Development Host, then open the Port Manager icon in the activity bar.
 
-Tests that do not need VS Code (parsers, adapters, service, formatting) can run directly with mocha after `npm run compile-tests`. `npm test` runs the full suite inside VS Code.
+### Tests
+
+`npm test` runs every test with [vitest](https://vitest.dev) in plain Node. It needs no VS Code and none of the tools the extension calls (`ss`, `lsof`, `netstat`, `ps`, PowerShell, `tasklist`): the parsers and adapters are tested against saved output in `src/test/fixtures/`, and the adapters' commands are replaced by fakes. The Linux fixtures are real captures; the macOS and Windows ones are hand-built until someone captures them on those systems. See [src/test/fixtures/README.md](src/test/fixtures/README.md) for what is real and how to replace the hand-built files with `scripts/capture-fixtures.js`.
+
+**Where tests go.** `src/test/` mirrors the source: the test for `src/features/ports/kill/unix-kill.ts` is `src/test/ports/kill/unix-kill.test.ts`, and for `src/shared/run-command.ts` it is `src/test/shared/run-command.test.ts`. One test file per source module. Saved tool output lives in `src/test/fixtures/`, and small shared helpers in `src/test/helpers/`.
+
+A few tests start and stop real child processes to check the kill logic (signals on macOS/Linux, `taskkill` on Windows); they only touch processes they create themselves.

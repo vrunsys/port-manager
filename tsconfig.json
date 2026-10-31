@@ -7,7 +7,7 @@
         ],
         "types": [
             "node",
-            "mocha"
+            "vitest/globals"
         ],
         "sourceMap": true,
         "rootDir": "src",

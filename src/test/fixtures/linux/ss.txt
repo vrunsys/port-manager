@@ -1,0 +1,18 @@
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                
+LISTEN 0      5          127.0.0.1:5054       0.0.0.0:*    users:(("ulauncher",pid=1695,fd=15))  
+LISTEN 0      511        127.0.0.1:45949      0.0.0.0:*    users:(("code",pid=9374,fd=48))       
+LISTEN 0      511        127.0.0.1:20855      0.0.0.0:*    users:(("code",pid=8227,fd=85))       
+LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*                                          
+LISTEN 0      4096      127.0.0.54:53         0.0.0.0:*                                          
+LISTEN 0      511          0.0.0.0:18102      0.0.0.0:*    users:(("MainThread",pid=31368,fd=23))
+LISTEN 0      511          0.0.0.0:18106      0.0.0.0:*    users:(("MainThread",pid=31375,fd=21))
+LISTEN 0      511          0.0.0.0:18106      0.0.0.0:*    users:(("MainThread",pid=31368,fd=26))
+LISTEN 0      4096       127.0.0.1:631        0.0.0.0:*                                          
+LISTEN 0      511        127.0.0.1:18101      0.0.0.0:*    users:(("MainThread",pid=31368,fd=22))
+LISTEN 0      511        127.0.0.1:34331      0.0.0.0:*    users:(("code",pid=8227,fd=48))       
+LISTEN 0      511        127.0.0.1:43623      0.0.0.0:*    users:(("code",pid=8146,fd=41))       
+LISTEN 0      50                 *:1716             *:*    users:(("kdeconnectd",pid=1691,fd=21))
+LISTEN 0      511             [::]:18105         [::]:*    users:(("MainThread",pid=31368,fd=25))
+LISTEN 0      511                *:18104            *:*    users:(("MainThread",pid=31368,fd=21))
+LISTEN 0      511            [::1]:18103         [::]:*    users:(("MainThread",pid=31368,fd=24))
+LISTEN 0      4096           [::1]:631           [::]:*                                          

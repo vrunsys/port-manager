@@ -1,0 +1,8 @@
+
+Connexions actives
+
+  Proto  Adresse locale         Adresse distante       État
+  TCP    0.0.0.0:135            0.0.0.0:0              ÉCOUTE          1032
+  TCP    0.0.0.0:3000           0.0.0.0:0              ÉCOUTE          5521
+  TCP    192.168.1.5:50123      52.1.2.3:443           ÉTABLI          7001
+  TCP    [::]:135               [::]:0                 ÉCOUTE          1032

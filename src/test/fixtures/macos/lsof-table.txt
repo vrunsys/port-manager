@@ -1,0 +1,12 @@
+COMMAND     PID        USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+launchd       1        root    5u  IPv6 0x6b2f4c1a9d3e1a17      0t0  TCP *:22 (LISTEN)
+rapportd    412       varun    8u  IPv4 0x6b2f4c1a9d3e8a57      0t0  TCP *:49152 (LISTEN)
+rapportd    412       varun    9u  IPv6 0x6b2f4c1a9d3e9b87      0t0  TCP *:49152 (LISTEN)
+ControlCe   498       varun   10u  IPv4 0x6b2f4c1a9d3eab27      0t0  TCP *:7000 (LISTEN)
+ControlCe   498       varun   11u  IPv6 0x6b2f4c1a9d3eab97      0t0  TCP *:7000 (LISTEN)
+ControlCe   498       varun   12u  IPv4 0x6b2f4c1a9d3eac07      0t0  TCP *:5000 (LISTEN)
+ControlCe   498       varun   13u  IPv6 0x6b2f4c1a9d3eac77      0t0  TCP *:5000 (LISTEN)
+Google\x20Chrome  1203       varun   42u  IPv4 0x6b2f4c1a9d3ebc97      0t0  TCP 127.0.0.1:9222 (LISTEN)
+node       5521       varun   23u  IPv6 0x6b2f4c1a9d3ecd07      0t0  TCP [::1]:3000 (LISTEN)
+node       5521       varun   24u  IPv4 0x6b2f4c1a9d3ecd77      0t0  TCP 127.0.0.1:3001 (LISTEN)
+postgres   7788   _postgres    7u  IPv4 0x6b2f4c1a9d3eded7      0t0  TCP 127.0.0.1:5432 (LISTEN)

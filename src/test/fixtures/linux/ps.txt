@@ -1,0 +1,7 @@
+   1691 dev                            /usr/lib/x86_64-linux-gnu/libexec/kdeconnectd
+   1695 dev                            /usr/bin/python3 /usr/bin/ulauncher --autostart-method-xdg
+   8146 dev                            /usr/share/code/code --type=utility --utility-sub-type=node.mojom.NodeService --lang=en-GB --service-sandbox-t
+   8227 dev                            /usr/share/code/code --type=utility --utility-sub-type=node.mojom.NodeService --lang=en-GB --service-sandbox-t
+   9374 dev                            /usr/share/code/code /home/dev/.vscode/extensions/ms-python.vscode-pylance-2026.4.1/dist/server.bundle.js --ca
+  31368 dev                            /home/dev/.nvm/versions/node/v24.22.1/bin/node -e  const net = require('net'); const listen = options => new P
+  31375 dev                            /home/dev/.nvm/versions/node/v24.22.1/bin/node -e  require('net').createServer().listen({ port: 18106, host: '
