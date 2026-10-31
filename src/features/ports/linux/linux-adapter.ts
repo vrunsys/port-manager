@@ -1,6 +1,7 @@
 import { CommandError, runCommand } from '../../../shared/run-command';
 import { CommandRunner, runKeepingOutput } from '../command-runner';
 import { killUnixProcess } from '../kill/unix-kill';
+import { PortListingError } from '../port-errors';
 import { KillOptions, KillResult, PlatformAdapter, PortInfo } from '../port-types';
 import { addProcessDetails } from '../process-details';
 import { LISTING_TOOLS } from './listing-tools';
@@ -34,6 +35,6 @@ export class LinuxAdapter implements PlatformAdapter {
 			}
 		}
 		const names = LISTING_TOOLS.map(tool => tool.file).join(', ');
-		throw new Error(`Could not list ports: none of ${names} is installed.`);
+		throw new PortListingError(`Could not list ports: none of ${names} is installed.`, 'tool-missing');
 	}
 }
