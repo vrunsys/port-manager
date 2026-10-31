@@ -9,6 +9,20 @@ import { fakeAdapter, port } from '../../helpers/adapter';
 import { memoryStore } from '../../helpers/memory-store';
 import { fakeSettings } from '../../helpers/settings';
 
+// The glue asks the operating system who is logged in. Fixing the answer keeps these tests the same on every machine:
+// every row below is owned by "varun", and a runner or a colleague's computer has a different account.
+const { account } = vi.hoisted(() => ({ account: { name: 'varun', unavailable: false } }));
+vi.mock('os', async importOriginal => {
+	const actual = await importOriginal<typeof import('os')>();
+	const userInfo = (): ReturnType<typeof actual.userInfo> => {
+		if (account.unavailable) {
+			throw new Error('no passwd entry for this uid');
+		}
+		return { username: account.name, uid: 1000, gid: 1000, shell: null, homedir: '/home/test' };
+	};
+	return { ...actual, default: { ...actual, userInfo }, userInfo };
+});
+
 const ROW_COMMANDS = ['kill', 'rename', 'copyPort', 'copyPid', 'openInBrowser'].map(name => `port-manager.${name}`);
 const NODE = port({ port: 3000, pid: 100, processName: 'node', command: 'node server.js' });
 const SSHD = port({ port: 22, pid: 200, processName: 'sshd' });
@@ -35,7 +49,11 @@ function noEffects(adapterKilled: number[]) {
 	assert.deepStrictEqual(adapterKilled, []);
 }
 
-beforeEach(() => fake.reset());
+beforeEach(() => {
+	fake.reset();
+	account.name = 'varun';
+	account.unavailable = false;
+});
 
 suite('row commands ignore anything that is not a row', () => {
 	class LooksLikeARow {
@@ -104,6 +122,22 @@ suite('row commands with a real row', () => {
 		assert.strictEqual(fake.modals[0].message, 'Stop node (PID 100)?');
 		assert.deepStrictEqual(fake.modals[0].buttons, ['Stop Process']);
 		assert.deepStrictEqual(state.killed, []);
+	});
+
+	test('Kill warns and asks again, whatever the settings, for a process owned by another account', async () => {
+		account.name = 'runner';
+		const { rowOf, state } = await registered([NODE], { confirmBeforeKill: false });
+		await fake.invoke('port-manager.kill', rowOf(NODE));
+		assert.strictEqual(fake.modals[0].message, 'Stop node (PID 100) owned by varun?');
+		assert.deepStrictEqual(fake.modals[0].buttons, ['Stop Anyway']);
+		assert.deepStrictEqual(state.killed, []);
+	});
+
+	test('Kill gives no ownership warning when the operating system cannot say who you are', async () => {
+		account.unavailable = true;
+		const { rowOf } = await registered();
+		await fake.invoke('port-manager.kill', rowOf(NODE));
+		assert.strictEqual(fake.modals[0].message, 'Stop node (PID 100)?');
 	});
 
 	test('Kill stops the process once the button is pressed, and says so', async () => {
