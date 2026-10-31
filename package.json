@@ -1,7 +1,7 @@
 {
   "name": "port-manager",
-  "displayName": "port-manager",
-  "description": "",
+  "displayName": "Port Manager",
+  "description": "See which processes are listening on local ports.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.140.0"
@@ -12,12 +12,40 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "port-manager",
+          "title": "Port Manager",
+          "icon": "$(stop-circle)"
+        }
+      ]
+    },
+    "views": {
+      "port-manager": [
+        {
+          "id": "port-manager.ports",
+          "name": "Listening Ports"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "port-manager.helloWorld",
-        "title": "Hello World"
+        "command": "port-manager.refresh",
+        "title": "Refresh",
+        "category": "Port Manager",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "port-manager.refresh",
+          "when": "view == port-manager.ports",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
