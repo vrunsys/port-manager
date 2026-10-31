@@ -1,0 +1,3 @@
+# Keep LF everywhere. On Windows, git would otherwise check files out with CRLF,
+# which changes the byte-exact tool-output fixtures the tests read.
+* text=auto eol=lf
