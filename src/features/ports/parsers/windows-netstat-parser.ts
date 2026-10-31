@@ -1,8 +1,9 @@
 import { PortInfo, UNKNOWN_LABEL } from '../port-types';
 import { parseHostPort } from './parse-host-port';
 
-// "TCP  0.0.0.0:135  0.0.0.0:0  LISTENING  1032" - the state word is localized, so it is not matched.
-const TCP_ROW = /^TCP\s+(\S+)\s+(\S+)\s+\S+\s+(\d+)$/i;
+// "TCP  0.0.0.0:135  0.0.0.0:0  LISTENING  1032" - the state is localized and may be several words
+// ("IN ASCOLTO" in Italian), so everything between the peer address and the PID is ignored.
+const TCP_ROW = /^TCP\s+(\S+)\s+(\S+)\s+.+?\s+(\d+)$/i;
 const NO_PEER_SUFFIX = ':0';
 
 /**
