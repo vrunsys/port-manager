@@ -13,6 +13,7 @@ import { FILTER_ACTIVE_CONTEXT, ITEM_COMMAND, REFRESH_COMMAND, RUNNING_ONLY_CONT
 const COMMAND_IDS = [REFRESH_COMMAND, ...Object.values(VIEW_COMMAND), ...Object.values(ITEM_COMMAND)];
 
 interface Manifest {
+	engines?: { vscode?: string };
 	extensionKind?: string[];
 	activationEvents?: string[];
 	dependencies?: Record<string, string>;
@@ -29,6 +30,14 @@ const manifest: Manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '.
 suite('package.json manifest', () => {
 	test('runs in the workspace extension host so Remote/WSL/containers show the remote ports (docs/remote-and-wsl.md)', () => {
 		assert.deepStrictEqual(manifest.extensionKind, ['workspace']);
+	});
+
+	test('accepts VS Code 1.85 and forks built on it (Cursor, Antigravity): the minimum has not been raised', () => {
+		assert.strictEqual(manifest.engines?.vscode, '^1.85.0');
+	});
+
+	test('pins @types/vscode to that same version, so the compiler rejects any newer API', () => {
+		assert.strictEqual(manifest.devDependencies?.['@types/vscode'], '1.85.0');
 	});
 
 	test('starts when VS Code has finished starting, so the status bar item is there without opening the view', () => {

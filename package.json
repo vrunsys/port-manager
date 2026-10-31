@@ -4,7 +4,7 @@
   "description": "See which processes are listening on local ports.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.140.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -286,7 +286,7 @@
   },
   "devDependencies": {
     "@types/node": "24.x",
-    "@types/vscode": "^1.140.0",
+    "@types/vscode": "1.85.0",
     "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",

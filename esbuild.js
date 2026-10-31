@@ -34,6 +34,8 @@ async function main() {
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
+		// The oldest supported host (VS Code 1.85) runs Node 18.
+		target: 'node18',
 		outfile: 'dist/extension.js',
 		external: ['vscode'],
 		logLevel: 'silent',

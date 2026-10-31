@@ -71,7 +71,7 @@ What Port Manager could not do is written to **Output > Port Manager**: a tool t
 
 ## Status
 
-Early development. Known limitations:
+Early development. Needs VS Code 1.85 or newer, or an editor built on it such as Cursor or Antigravity. Known limitations:
 
 - Windows support has only been tested against sample output, not on a real Windows machine. `scripts/spike-windows-ports.js` measures the PowerShell path on Windows.
 

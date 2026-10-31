@@ -4,6 +4,7 @@ All notable changes to the "port-manager" extension will be documented in this f
 
 ## [Unreleased]
 
+- Installs on VS Code 1.85 and newer, and on editors built on it such as Cursor and Antigravity. The minimum was 1.140, which those editors report as too new. The oldest VS Code API in use is from 1.74, so 1.85 leaves a margin.
 - Hardening from a code review: OS-critical processes can never be stopped; every stop is preceded by a fresh scan that confirms the PID still holds the port; Windows `taskkill /T` refuses ancestors of the extension host; Linux falls back to the next tool when one fails, not only when it is missing; a failing `ps` no longer blocks the list; PowerShell failures are remembered for five minutes and logged to Output > Port Manager; no console window flashes on Windows; Unix tools run with English messages; polling pauses when the window is unfocused and backs off after slow scans; the status bar item appears at startup; the safety settings can no longer be set per workspace.
 - Sidebar view listing listening ports (port, protocol, process, PID, user) with tooltips, refresh button, and empty/error states.
 - **Show Running Only** toggle in the title bar to hide rows whose process is hidden; the header, badge and status bar count follow it.
