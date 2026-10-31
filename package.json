@@ -35,6 +35,34 @@
         "title": "Refresh",
         "category": "Port Manager",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "port-manager.kill",
+        "title": "Kill Process",
+        "category": "Port Manager",
+        "icon": "$(close)"
+      },
+      {
+        "command": "port-manager.killByPort",
+        "title": "Kill Process on Port…",
+        "category": "Port Manager"
+      },
+      {
+        "command": "port-manager.copyPort",
+        "title": "Copy Port",
+        "category": "Port Manager",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "port-manager.copyPid",
+        "title": "Copy PID",
+        "category": "Port Manager"
+      },
+      {
+        "command": "port-manager.openInBrowser",
+        "title": "Open in Browser",
+        "category": "Port Manager",
+        "icon": "$(globe)"
       }
     ],
     "menus": {
@@ -44,6 +72,44 @@
           "when": "view == port-manager.ports",
           "group": "navigation"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "port-manager.openInBrowser",
+          "when": "view == port-manager.ports",
+          "group": "inline@1"
+        },
+        {
+          "command": "port-manager.kill",
+          "when": "view == port-manager.ports && viewItem == port",
+          "group": "inline@2"
+        },
+        {
+          "command": "port-manager.openInBrowser",
+          "when": "view == port-manager.ports",
+          "group": "1_open@1"
+        },
+        {
+          "command": "port-manager.copyPort",
+          "when": "view == port-manager.ports",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "port-manager.copyPid",
+          "when": "view == port-manager.ports && viewItem == port",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "port-manager.kill",
+          "when": "view == port-manager.ports && viewItem == port",
+          "group": "3_kill@1"
+        }
+      ],
+      "commandPalette": [
+        { "command": "port-manager.kill", "when": "false" },
+        { "command": "port-manager.copyPort", "when": "false" },
+        { "command": "port-manager.copyPid", "when": "false" },
+        { "command": "port-manager.openInBrowser", "when": "false" }
       ]
     }
   },

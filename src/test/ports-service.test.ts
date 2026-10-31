@@ -42,8 +42,15 @@ class FakeAdapter implements PlatformAdapter {
 	calls = 0;
 	listPorts: () => Promise<PortInfo[]> = async () => [];
 
-	async killProcess(): Promise<KillResult> {
-		return { status: 'killed', message: '' };
+	killedPids: number[] = [];
+	killResult: KillResult | Error = { status: 'killed', message: '' };
+
+	async killProcess(pid: number): Promise<KillResult> {
+		this.killedPids.push(pid);
+		if (this.killResult instanceof Error) {
+			throw this.killResult;
+		}
+		return this.killResult;
 	}
 
 	/** Makes the next scans return `result`, which may be an error to throw. */
@@ -307,6 +314,33 @@ suite('PortsService overlapping scans', () => {
 		await service.refresh();
 		await service.refresh();
 		assert.strictEqual(adapter.calls, 2);
+	});
+});
+
+suite('PortsService.killProcess', () => {
+	test('kills through the adapter, then rescans so the list is current', async () => {
+		const { adapter, service } = setup();
+		await service.refresh();
+		adapter.respondWith([]);
+		const result = await service.killProcess(100);
+		assert.deepStrictEqual(adapter.killedPids, [100]);
+		assert.strictEqual(result.status, 'killed');
+		assert.deepStrictEqual(service.state.ports, []);
+	});
+
+	test('rescans even when the kill did not succeed, and returns that result', async () => {
+		const { adapter, service } = setup();
+		adapter.killResult = { status: 'permission-denied', message: 'no' };
+		const result = await service.killProcess(100);
+		assert.strictEqual(result.status, 'permission-denied');
+		assert.strictEqual(adapter.calls, 1);
+	});
+
+	test('rescans and rethrows when the adapter throws', async () => {
+		const { adapter, service } = setup();
+		adapter.killResult = new Error('adapter bug');
+		await assert.rejects(service.killProcess(100), /adapter bug/);
+		assert.strictEqual(adapter.calls, 1);
 	});
 });
 

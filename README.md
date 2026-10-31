@@ -7,6 +7,12 @@ See which processes are listening on local ports, right from the VS Code sidebar
 - **Port Manager** activity bar icon with a **Listening Ports** view.
 - Each row shows the port, protocol, process name, PID and user. Hover a row for the bind address, full command line and working directory (when known).
 - The list refreshes automatically every 2 seconds while the view is visible, and stops polling while it is hidden. Use the refresh button in the view title bar (or the **Port Manager: Refresh** command) to refresh immediately.
+- Row actions, as inline buttons and in the right-click menu:
+  - **Open in Browser** opens `http://localhost:<port>`.
+  - **Kill Process** asks for confirmation (process name and PID), then stops the process: a graceful stop first, forced after a few seconds on macOS/Linux, and `taskkill /T /F` on Windows. It shows a clear message if the process is already gone or you lack permission.
+  - **Copy Port** and **Copy PID** (right-click menu).
+  - Kill and Copy PID are not offered for rows whose process is hidden.
+- **Port Manager: Kill Process on Port…** in the Command Palette opens a quick pick of the current ports. Type a port number or process name to filter, press Enter, then confirm. It uses the same confirmation and kill logic as the tree, so a port can be stopped entirely from the keyboard.
 - Clear states for scanning, no listening ports, and errors (tool missing, permission denied, timeout). After a failed refresh the last known list stays visible.
 - IPv4 and IPv6 sockets of the same process are shown as one row.
 
@@ -24,7 +30,6 @@ Processes owned by other users may be hidden unless VS Code runs with enough pri
 
 Early development. Not yet available:
 
-- Stopping a process from the view (the cross-platform kill logic exists, the UI does not).
 - A setting for the refresh interval.
 - Windows support has only been tested against sample output, not on a real Windows machine. `scripts/spike-windows-ports.js` measures the PowerShell path on Windows.
 

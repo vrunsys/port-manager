@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { buildPortTooltip, formatPortDescription, formatPortLabel } from './port-formatting';
 import { PortInfo } from './port-types';
 import { PortsService } from './ports-service';
+import { CONTEXT_VALUE } from './view-constants';
 
 export class PortItem extends vscode.TreeItem {
 	constructor(readonly info: PortInfo) {
@@ -11,6 +12,7 @@ export class PortItem extends vscode.TreeItem {
 		this.description = formatPortDescription(info);
 		this.tooltip = new vscode.MarkdownString(buildPortTooltip(info));
 		this.iconPath = new vscode.ThemeIcon('stop-circle');
+		this.contextValue = info.pid === undefined ? CONTEXT_VALUE.hiddenProcess : CONTEXT_VALUE.port;
 	}
 }
 

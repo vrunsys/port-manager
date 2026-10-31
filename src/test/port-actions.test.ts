@@ -1,0 +1,300 @@
+import * as assert from 'assert';
+import { createPortActions, PortActionsService, PortActionsUi } from '../features/ports/port-actions';
+import { KillResult, PortInfo, UNKNOWN_LABEL } from '../features/ports/port-types';
+import { PortsState } from '../features/ports/ports-service';
+
+function port(overrides: Partial<PortInfo> = {}): PortInfo {
+	return {
+		port: 3000,
+		protocol: 'tcp',
+		address: '127.0.0.1',
+		pid: 4242,
+		processName: 'node',
+		user: 'varun',
+		command: 'node server.js',
+		...overrides,
+	};
+}
+
+const hidden = port({ pid: undefined, processName: UNKNOWN_LABEL, command: undefined });
+
+interface Confirmation {
+	message: string;
+	detail: string | undefined;
+	actionLabel: string;
+}
+
+interface FakeUiOptions {
+	confirms?: boolean;
+	opens?: boolean;
+	copyError?: Error;
+	/** Chooses from the offered ports; by default the first one. */
+	pick?: (ports: readonly PortInfo[]) => PortInfo | undefined;
+}
+
+function fakeUi(options: FakeUiOptions = {}) {
+	const log = {
+		offered: [] as PortInfo[],
+		confirmations: [] as Confirmation[],
+		status: [] as string[],
+		warnings: [] as string[],
+		errors: [] as string[],
+		copied: [] as string[],
+		opened: [] as string[],
+		progressTitles: [] as string[],
+	};
+	const ui: PortActionsUi = {
+		async confirm(message, detail, actionLabel) {
+			log.confirmations.push({ message, detail, actionLabel });
+			return options.confirms ?? true;
+		},
+		async pickPort(ports) {
+			log.offered.push(...ports);
+			return (options.pick ?? (offered => offered[0]))(ports);
+		},
+		showStatus: text => void log.status.push(text),
+		showWarning: text => void log.warnings.push(text),
+		showError: text => void log.errors.push(text),
+		async copy(text) {
+			if (options.copyError) {
+				throw options.copyError;
+			}
+			log.copied.push(text);
+		},
+		async openExternal(url) {
+			log.opened.push(url);
+			return options.opens ?? true;
+		},
+		withProgress(title, task) {
+			log.progressTitles.push(title);
+			return task();
+		},
+	};
+	return { ui, log };
+}
+
+function fakeKiller(result: KillResult | Error, state: Partial<PortsState> = {}) {
+	const killed: number[] = [];
+	const calls: string[] = [];
+	const killer: PortActionsService = {
+		state: { ports: [], loaded: true, error: undefined, ...state },
+		async refresh() {
+			calls.push('refresh');
+		},
+		async killProcess(pid) {
+			killed.push(pid);
+			calls.push('kill');
+			if (result instanceof Error) {
+				throw result;
+			}
+			return result;
+		},
+	};
+	return { killer, killed, calls };
+}
+
+const killedResult: KillResult = { status: 'killed', message: 'Stopped process 4242.' };
+
+suite('kill action', () => {
+	test('asks for confirmation naming the process, PID, port and command', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).kill(port());
+		assert.deepStrictEqual(log.confirmations, [
+			{
+				message: 'Stop node (PID 4242)?',
+				detail: 'Listening on port 3000.\n\nCommand: node server.js',
+				actionLabel: 'Stop Process',
+			},
+		]);
+	});
+
+	test('stops the process after confirmation and reports success', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui).kill(port());
+		assert.deepStrictEqual(killed, [4242]);
+		assert.deepStrictEqual(log.progressTitles, ['Stopping node (PID 4242)…']);
+		assert.deepStrictEqual(log.status, ['Stopped node (PID 4242).']);
+		assert.deepStrictEqual([log.warnings, log.errors], [[], []]);
+	});
+
+	test('does nothing when the user cancels', async () => {
+		const { ui, log } = fakeUi({ confirms: false });
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui).kill(port());
+		assert.deepStrictEqual(killed, []);
+		assert.deepStrictEqual([log.status, log.warnings, log.errors], [[], [], []]);
+	});
+
+	test('shows a readable error with a hint for permission-denied', async () => {
+		const { ui, log } = fakeUi();
+		const denied: KillResult = { status: 'permission-denied', message: 'No permission to stop process 4242.' };
+		await createPortActions(fakeKiller(denied).killer, ui).kill(port());
+		assert.strictEqual(log.errors.length, 1);
+		assert.match(log.errors[0], /No permission to stop process 4242\./);
+		assert.match(log.errors[0], /elevated privileges/);
+	});
+
+	test('shows a warning, not an error, for not-found', async () => {
+		const { ui, log } = fakeUi();
+		const gone: KillResult = { status: 'not-found', message: 'Process 4242 is not running.' };
+		await createPortActions(fakeKiller(gone).killer, ui).kill(port());
+		assert.deepStrictEqual(log.warnings, ['Process 4242 is not running.']);
+		assert.deepStrictEqual(log.errors, []);
+	});
+
+	test('shows the message of a failed kill as an error', async () => {
+		const { ui, log } = fakeUi();
+		const failed: KillResult = { status: 'failed', message: 'Process 4242 is still running after SIGKILL.' };
+		await createPortActions(fakeKiller(failed).killer, ui).kill(port());
+		assert.deepStrictEqual(log.errors, ['Process 4242 is still running after SIGKILL.']);
+	});
+
+	test('explains instead of asking when the process is hidden', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui).kill(hidden);
+		assert.deepStrictEqual(log.confirmations, []);
+		assert.deepStrictEqual(killed, []);
+		assert.match(log.warnings[0], /Port 3000 belongs to a process/);
+	});
+
+	test('turns an unexpected exception into a readable error', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(new Error('adapter bug')).killer, ui).kill(port());
+		assert.deepStrictEqual(log.errors, ['Port Manager: adapter bug']);
+	});
+
+	test('omits the command line from the confirmation when it is unknown', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).kill(port({ command: undefined }));
+		assert.strictEqual(log.confirmations[0].detail, 'Listening on port 3000.');
+	});
+});
+
+suite('killByPort action', () => {
+	const web = port({ port: 3000, pid: 100, processName: 'node' });
+	const db = port({ port: 5432, pid: 200, processName: 'postgres', command: 'postgres -D /data' });
+
+	test('refreshes first, so a hidden view still offers current ports', async () => {
+		const { ui } = fakeUi({ confirms: false });
+		const { killer, calls } = fakeKiller(killedResult, { ports: [web] });
+		await createPortActions(killer, ui).killByPort();
+		assert.strictEqual(calls[0], 'refresh');
+	});
+
+	test('offers only ports whose process can be stopped', async () => {
+		const { ui, log } = fakeUi({ confirms: false });
+		const { killer } = fakeKiller(killedResult, { ports: [web, hidden, db] });
+		await createPortActions(killer, ui).killByPort();
+		assert.deepStrictEqual(log.offered.map(p => p.port), [3000, 5432]);
+	});
+
+	test('uses the same confirmation and kill path as the tree action', async () => {
+		const { ui, log } = fakeUi({ pick: ports => ports.find(p => p.port === 5432) });
+		const { killer, killed } = fakeKiller(killedResult, { ports: [web, db] });
+		await createPortActions(killer, ui).killByPort();
+		assert.deepStrictEqual(log.confirmations, [
+			{
+				message: 'Stop postgres (PID 200)?',
+				detail: 'Listening on port 5432.\n\nCommand: postgres -D /data',
+				actionLabel: 'Stop Process',
+			},
+		]);
+		assert.deepStrictEqual(killed, [200]);
+		assert.deepStrictEqual(log.status, ['Stopped postgres (PID 200).']);
+	});
+
+	test('does nothing when the picker is dismissed', async () => {
+		const { ui, log } = fakeUi({ pick: () => undefined });
+		const { killer, killed } = fakeKiller(killedResult, { ports: [web] });
+		await createPortActions(killer, ui).killByPort();
+		assert.deepStrictEqual(killed, []);
+		assert.deepStrictEqual(log.confirmations, []);
+	});
+
+	test('does not kill when the confirmation is declined', async () => {
+		const { ui } = fakeUi({ confirms: false });
+		const { killer, killed } = fakeKiller(killedResult, { ports: [web] });
+		await createPortActions(killer, ui).killByPort();
+		assert.deepStrictEqual(killed, []);
+	});
+
+	test('says so when there are no listening ports', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).killByPort();
+		assert.deepStrictEqual(log.warnings, ['No listening ports']);
+		assert.deepStrictEqual(log.offered, []);
+	});
+
+	test('shows the listing error when no ports could be read', async () => {
+		const { ui, log } = fakeUi();
+		const error = { kind: 'tool-missing' as const, message: 'none of ss, lsof, netstat is installed.' };
+		await createPortActions(fakeKiller(killedResult, { error }).killer, ui).killByPort();
+		assert.deepStrictEqual(log.warnings, ['Tool missing. none of ss, lsof, netstat is installed.']);
+	});
+
+	test('explains when every port belongs to a hidden process', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult, { ports: [hidden] }).killer, ui).killByPort();
+		assert.match(log.warnings[0], /processes are hidden/);
+		assert.deepStrictEqual(log.offered, []);
+	});
+});
+
+suite('copy actions', () => {
+	test('copyPort puts the port number on the clipboard', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).copyPort(port());
+		assert.deepStrictEqual(log.copied, ['3000']);
+		assert.deepStrictEqual(log.status, ['Copied port 3000']);
+	});
+
+	test('copyPid puts the PID on the clipboard', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).copyPid(port());
+		assert.deepStrictEqual(log.copied, ['4242']);
+		assert.deepStrictEqual(log.status, ['Copied PID 4242']);
+	});
+
+	test('copyPid explains when the PID is unknown and copies nothing', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).copyPid(hidden);
+		assert.deepStrictEqual(log.copied, []);
+		assert.strictEqual(log.warnings.length, 1);
+	});
+
+	test('copyPort still works for a hidden process', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).copyPort(hidden);
+		assert.deepStrictEqual(log.copied, ['3000']);
+	});
+
+	test('reports a clipboard failure instead of throwing', async () => {
+		const { ui, log } = fakeUi({ copyError: new Error('clipboard unavailable') });
+		await createPortActions(fakeKiller(killedResult).killer, ui).copyPort(port());
+		assert.deepStrictEqual(log.errors, ['Port Manager: clipboard unavailable']);
+		assert.deepStrictEqual(log.status, []);
+	});
+});
+
+suite('openInBrowser action', () => {
+	test('opens http://localhost:<port>', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).openInBrowser(port({ port: 8080 }));
+		assert.deepStrictEqual(log.opened, ['http://localhost:8080']);
+		assert.deepStrictEqual(log.errors, []);
+	});
+
+	test('works for a hidden process, since only the port is needed', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui).openInBrowser(hidden);
+		assert.deepStrictEqual(log.opened, ['http://localhost:3000']);
+	});
+
+	test('shows an error when the browser could not be opened', async () => {
+		const { ui, log } = fakeUi({ opens: false });
+		await createPortActions(fakeKiller(killedResult).killer, ui).openInBrowser(port());
+		assert.deepStrictEqual(log.errors, ['Could not open http://localhost:3000 in the browser.']);
+	});
+});

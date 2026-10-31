@@ -1,6 +1,6 @@
 import { portListsEqual, dedupePorts } from './port-list';
 import { PortsError, toPortsError } from './port-errors';
-import { PlatformAdapter, PortInfo } from './port-types';
+import { KillOptions, KillResult, PlatformAdapter, PortInfo } from './port-types';
 
 export const DEFAULT_INTERVAL_MS = 2000;
 /** Each scan starts several processes, so polling faster than this only wastes work. */
@@ -105,6 +105,15 @@ export class PortsService {
 			this.inFlight = undefined;
 		});
 		return this.inFlight;
+	}
+
+	/** Stops a process, then rescans so the list reflects the outcome even when the kill failed. */
+	async killProcess(pid: number, options?: KillOptions): Promise<KillResult> {
+		try {
+			return await this.adapter.killProcess(pid, options);
+		} finally {
+			await this.refresh();
+		}
 	}
 
 	dispose(): void {

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { createPlatformAdapter } from './features/ports/platform-adapter-factory';
 import { PlatformAdapter } from './features/ports/port-types';
 import { PortsService } from './features/ports/ports-service';
+import { registerPortActions } from './features/ports/register-port-actions';
 import { registerPortsView } from './features/ports/register-ports-view';
 import { UnsupportedAdapter } from './features/ports/unsupported-adapter';
 
@@ -18,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		{ dispose: () => service.dispose() },
 		registerPortsView(service),
+		registerPortActions(service),
 	);
 }
 
