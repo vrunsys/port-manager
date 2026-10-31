@@ -17,12 +17,23 @@ export interface PortInfo {
 }
 
 export interface KillOptions {
-	/** Send SIGKILL instead of asking the process to exit with SIGTERM. */
+	/** macOS/Linux: skip SIGTERM and send SIGKILL immediately. Windows always forces. */
 	force?: boolean;
+	/** macOS/Linux: how long to wait after SIGTERM before sending SIGKILL. */
+	gracePeriodMs?: number;
+}
+
+export type KillStatus = 'killed' | 'not-found' | 'permission-denied' | 'failed';
+
+export interface KillResult {
+	status: KillStatus;
+	/** Ready to show to the user. */
+	message: string;
 }
 
 /** Implemented once per operating system; the rest of the extension only sees this. */
 export interface PlatformAdapter {
 	listPorts(): Promise<PortInfo[]>;
-	killProcess(pid: number, options: KillOptions): Promise<void>;
+	/** Never rejects for expected outcomes: they come back as a KillResult. */
+	killProcess(pid: number, options?: KillOptions): Promise<KillResult>;
 }

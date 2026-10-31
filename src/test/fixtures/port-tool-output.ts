@@ -47,6 +47,45 @@ export const MACOS_PS_OUTPUT = `    1 root             /sbin/launchd
  5521 varun            node server.js --port 3000
 `;
 
+/**
+ * Shaped like the output of the PowerShell script (ConvertTo-Json -Compress): ProcessName and
+ * Path are null for processes we may not inspect. Hand-built, not captured on Windows.
+ */
+export const WINDOWS_POWERSHELL_JSON = JSON.stringify([
+	{ Port: 135, Address: '0.0.0.0', Pid: 1032, ProcessName: 'svchost', Path: null },
+	{ Port: 3000, Address: '::', Pid: 5521, ProcessName: 'node', Path: 'C:\\Program Files\\nodejs\\node.exe' },
+	{ Port: 49670, Address: 'fe80::1%12', Pid: 4, ProcessName: null, Path: null },
+]);
+
+/** German Windows: every word in the headers and the state column is localized. */
+export const WINDOWS_NETSTAT_DE_OUTPUT = `
+Aktive Verbindungen
+
+  Proto  Lokale Adresse         Remoteadresse          Status           PID
+  TCP    0.0.0.0:135            0.0.0.0:0              ABHÖREN         1032
+  TCP    0.0.0.0:3000           0.0.0.0:0              ABHÖREN         5521
+  TCP    127.0.0.1:49670        127.0.0.1:49671        HERGESTELLT     8800
+  TCP    [::]:135               [::]:0                 ABHÖREN         1032
+  UDP    0.0.0.0:5353           *:*                                    2200
+`;
+
+/** English Windows, same shape. */
+export const WINDOWS_NETSTAT_EN_OUTPUT = `
+Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+  TCP    192.168.1.5:139        0.0.0.0:0              LISTENING       4
+  TCP    192.168.1.5:50123      52.1.2.3:443           ESTABLISHED     7001
+`;
+
+/** tasklist /FO CSV /NH: memory values contain commas inside quotes. */
+export const WINDOWS_TASKLIST_OUTPUT = `"System Idle Process","0","Services","0","8 K"
+"System","4","Services","0","144 K"
+"svchost.exe","1032","Services","0","12,488 K"
+"node.exe","5521","Console","1","80,112 K"
+`;
+
 export const PS_OUTPUT = `  612 systemd-resolve        /usr/lib/systemd/systemd-resolved
   801 root                   sshd: /usr/sbin/sshd -D
  4242 varun                  node server.js --port 3000

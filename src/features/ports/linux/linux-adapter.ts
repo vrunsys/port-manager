@@ -1,6 +1,7 @@
 import { CommandError, runCommand } from '../../../shared/run-command';
 import { CommandRunner, runKeepingOutput } from '../command-runner';
-import { KillOptions, PlatformAdapter, PortInfo } from '../port-types';
+import { killUnixProcess } from '../kill/unix-kill';
+import { KillOptions, KillResult, PlatformAdapter, PortInfo } from '../port-types';
 import { addProcessDetails } from '../process-details';
 import { LISTING_TOOLS } from './listing-tools';
 
@@ -18,8 +19,8 @@ export class LinuxAdapter implements PlatformAdapter {
 		return addProcessDetails(this.run, await this.listWithFirstAvailableTool(), PS_FIELDS);
 	}
 
-	async killProcess(_pid: number, _options: KillOptions): Promise<void> {
-		throw new Error('Killing processes is not implemented yet.');
+	killProcess(pid: number, options?: KillOptions): Promise<KillResult> {
+		return killUnixProcess(pid, options);
 	}
 
 	private async listWithFirstAvailableTool(): Promise<PortInfo[]> {

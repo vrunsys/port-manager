@@ -1,7 +1,8 @@
 import { runCommand } from '../../../shared/run-command';
 import { CommandRunner, runKeepingOutput } from '../command-runner';
 import { parseLsofTable } from '../parsers/lsof-table-parser';
-import { KillOptions, PlatformAdapter, PortInfo } from '../port-types';
+import { killUnixProcess } from '../kill/unix-kill';
+import { KillOptions, KillResult, PlatformAdapter, PortInfo } from '../port-types';
 import { addProcessDetails } from '../process-details';
 
 const LSOF_ARGS = ['-iTCP', '-sTCP:LISTEN', '-nP'];
@@ -16,7 +17,7 @@ export class DarwinAdapter implements PlatformAdapter {
 		return addProcessDetails(this.run, parseLsofTable(output), PS_FIELDS);
 	}
 
-	async killProcess(_pid: number, _options: KillOptions): Promise<void> {
-		throw new Error('Killing processes is not implemented yet.');
+	killProcess(pid: number, options?: KillOptions): Promise<KillResult> {
+		return killUnixProcess(pid, options);
 	}
 }

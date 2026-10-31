@@ -19,6 +19,8 @@ export class CommandError extends Error {
 		readonly failure: CommandFailure,
 		readonly stdout: string,
 		readonly stderr: string,
+		/** Set when the program ran and exited non-zero; lets callers avoid parsing localized text. */
+		readonly exitCode?: number,
 	) {
 		super(message);
 		this.name = 'CommandError';
@@ -48,7 +50,8 @@ export function runCommand(file: string, args: string[], options: RunCommandOpti
 				return;
 			}
 			const { failure, message } = describeFailure(file, error, timeoutMs);
-			reject(new CommandError(message, failure, stdout, stderr));
+			const exitCode = typeof error.code === 'number' ? error.code : undefined;
+			reject(new CommandError(message, failure, stdout, stderr, exitCode));
 		});
 	});
 }

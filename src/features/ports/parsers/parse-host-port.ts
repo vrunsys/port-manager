@@ -6,6 +6,10 @@ export interface HostPort {
 	port: number;
 }
 
+export function isValidPort(port: unknown): port is number {
+	return typeof port === 'number' && Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+}
+
 /** Splits "host:port" as printed by ss, lsof and netstat, including "[::1]:80" and ":::22". */
 export function parseHostPort(text: string): HostPort | undefined {
 	const separator = text.lastIndexOf(':');
@@ -13,7 +17,7 @@ export function parseHostPort(text: string): HostPort | undefined {
 		return undefined;
 	}
 	const port = Number(text.slice(separator + 1));
-	if (!Number.isInteger(port) || port < MIN_PORT || port > MAX_PORT) {
+	if (!isValidPort(port)) {
 		return undefined;
 	}
 	const address = text

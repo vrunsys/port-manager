@@ -1,6 +1,6 @@
-import { CommandError } from '../../shared/run-command';
+import { CommandError, RunCommandOptions } from '../../shared/run-command';
 
-export type CommandRunner = (file: string, args: string[]) => Promise<string>;
+export type CommandRunner = (file: string, args: string[], options?: RunCommandOptions) => Promise<string>;
 
 /**
  * ss, lsof and ps exit non-zero in harmless cases (nothing matched, a PID already
