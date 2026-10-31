@@ -41,6 +41,21 @@ All settings apply immediately, without reloading the window.
 
 Protected rows stay listed but have no Kill button, and their tooltip says why. Kill and **Kill Process on Port…** refuse them even with confirmations switched off.
 
+## Safety
+
+Port Manager only stops a process when you ask, and it refuses some processes outright, explaining why:
+
+- Anything in `portManager.protectedPorts` or `portManager.protectedProcesses`.
+- System processes: PID 0, PID 1, and PID 4 (the Windows System process).
+- The VS Code extension host Port Manager runs in, and the VS Code process that started it.
+- A process owned by another user always asks for confirmation (button **Stop Anyway**) with an explicit warning, even if `portManager.confirmBeforeKill` is off. This needs the owner to be known, so it does not apply on Windows.
+
+Port Manager never elevates privileges on its own. If the OS refuses (`permission denied`), the message tells you what to run yourself: `sudo kill <pid>` on macOS/Linux, or restart VS Code as administrator / use an elevated terminal on Windows.
+
+## Remote, WSL and containers
+
+The extension runs where your files are (`"extensionKind": ["workspace"]`), so in Remote - SSH, WSL and Dev Containers it shows and manages the **remote** machine's ports, and **Open in Browser** is forwarded to your computer. Details and reasoning: [docs/remote-and-wsl.md](docs/remote-and-wsl.md).
+
 ## Status
 
 Early development. Known limitations:

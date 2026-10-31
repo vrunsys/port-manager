@@ -63,7 +63,7 @@ suite('killWindowsProcess', () => {
 	});
 
 	test('never runs taskkill for protected or invalid pids', async () => {
-		for (const pid of [0, 1, -1, 2.5, process.pid]) {
+		for (const pid of [0, 1, 4, -1, 2.5, process.pid]) {
 			const { run, calls } = fakeRunner({ taskkill: () => 'SUCCESS' });
 			assert.strictEqual((await killWindowsProcess(pid, run)).status, 'failed', `pid ${pid}`);
 			assert.deepStrictEqual(calls, [], `pid ${pid}`);

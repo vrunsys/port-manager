@@ -133,7 +133,7 @@ suite('kill action', () => {
 		await createPortActions(fakeKiller(denied).killer, ui).kill(port());
 		assert.strictEqual(log.errors.length, 1);
 		assert.match(log.errors[0], /No permission to stop process 4242\./);
-		assert.match(log.errors[0], /elevated privileges/);
+		assert.match(log.errors[0], /never raises its own privileges/);
 	});
 
 	test('shows a warning, not an error, for not-found', async () => {
@@ -353,6 +353,119 @@ suite('protected ports and processes', () => {
 		await actions.openInBrowser(port());
 		assert.deepStrictEqual(log.copied, ['3000', '4242']);
 		assert.deepStrictEqual(log.opened, ['http://localhost:3000']);
+	});
+});
+
+suite('system process guards', () => {
+	const own = 5000;
+	const system = { ownPid: own, parentPid: 4000, platform: 'linux' as NodeJS.Platform };
+	const kill = (info: PortInfo, environment = system, ui = fakeUi()) => {
+		const service = fakeKiller(killedResult, { ports: [info] });
+		return { ...service, ...ui, run: () => createPortActions(service.killer, ui.ui, liveSettings(), environment).kill(info) };
+	};
+
+	test('refuses PID 1 before asking anything, and explains why', async () => {
+		const attempt = kill(port({ pid: 1, processName: 'systemd' }));
+		await attempt.run();
+		assert.deepStrictEqual(attempt.killed, []);
+		assert.deepStrictEqual(attempt.log.confirmations, []);
+		assert.match(attempt.log.warnings[0], /is protected \(process 1 is the system init process\)/);
+	});
+
+	test('refuses Windows PID 4 on Windows but not elsewhere', async () => {
+		const windows = kill(port({ pid: 4, processName: 'System' }), { ...system, platform: 'win32' });
+		await windows.run();
+		assert.deepStrictEqual(windows.killed, []);
+		assert.match(windows.log.warnings[0], /Windows System process/);
+
+		const linux = kill(port({ pid: 4 }), system);
+		await linux.run();
+		assert.deepStrictEqual(linux.killed, [4]);
+	});
+
+	test('refuses the extension host and its parent', async () => {
+		for (const pid of [own, 4000]) {
+			const attempt = kill(port({ pid }));
+			await attempt.run();
+			assert.deepStrictEqual(attempt.killed, [], `pid ${pid}`);
+			assert.strictEqual(attempt.log.confirmations.length, 0, `pid ${pid}`);
+		}
+	});
+
+	test('does not offer system processes in the kill-by-port picker', async () => {
+		const { ui, log } = fakeUi({ pick: () => undefined });
+		const ports = [port({ pid: 1, port: 22 }), port({ pid: own, port: 23 }), port({ pid: 100, port: 3000 })];
+		const { killer } = fakeKiller(killedResult, { ports });
+		await createPortActions(killer, ui, liveSettings(), system).killByPort();
+		assert.deepStrictEqual(log.offered.map(p => p.port), [3000]);
+	});
+});
+
+suite('processes owned by another user', () => {
+	const root = port({ user: 'root', processName: 'nginx', pid: 900 });
+
+	test('always asks, even with confirmations off, with a stronger warning and button', async () => {
+		const { ui, log } = fakeUi();
+		const { killer, killed } = fakeKiller(killedResult);
+		const settings = liveSettings({ confirmBeforeKill: false });
+		await createPortActions(killer, ui, settings, { currentUser: 'varun' }).kill(root);
+		assert.strictEqual(log.confirmations.length, 1);
+		assert.strictEqual(log.confirmations[0].message, 'Stop nginx (PID 900) owned by root?');
+		assert.strictEqual(log.confirmations[0].actionLabel, 'Stop Anyway');
+		assert.match(log.confirmations[0].detail ?? '', /belongs to another user \(root\), not to you \(varun\)/);
+		assert.deepStrictEqual(killed, [900]);
+	});
+
+	test('does not stop it when the stronger warning is declined', async () => {
+		const { ui } = fakeUi({ confirms: false });
+		const { killer, killed } = fakeKiller(killedResult);
+		await createPortActions(killer, ui, liveSettings({ confirmBeforeKill: false }), { currentUser: 'varun' }).kill(root);
+		assert.deepStrictEqual(killed, []);
+	});
+
+	test('uses the normal confirmation for your own processes', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), { currentUser: 'varun' }).kill(port());
+		assert.strictEqual(log.confirmations[0].actionLabel, 'Stop Process');
+		assert.doesNotMatch(log.confirmations[0].detail ?? '', /another user/);
+	});
+
+	test('gives no ownership warning when the current user is unknown', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(killedResult).killer, ui, liveSettings(), {}).kill(root);
+		assert.strictEqual(log.confirmations[0].actionLabel, 'Stop Process');
+	});
+});
+
+suite('permission-denied guidance', () => {
+	const denied: KillResult = { status: 'permission-denied', message: 'No permission to stop process 900.' };
+	const root = port({ user: 'root', pid: 900 });
+
+	test('tells Linux and macOS users to run sudo themselves, and that nothing elevates by itself', async () => {
+		for (const platform of ['linux', 'darwin'] as const) {
+			const { ui, log } = fakeUi();
+			await createPortActions(fakeKiller(denied).killer, ui, liveSettings(), { platform }).kill(root);
+			assert.match(log.errors[0], /No permission to stop process 900\./, platform);
+			assert.match(log.errors[0], /needs elevated rights \(sudo\)/, platform);
+			assert.match(log.errors[0], /sudo kill 900/, platform);
+			assert.match(log.errors[0], /never raises its own privileges/, platform);
+		}
+	});
+
+	test('tells Windows users to run as administrator, and that nothing elevates by itself', async () => {
+		const { ui, log } = fakeUi();
+		await createPortActions(fakeKiller(denied).killer, ui, liveSettings(), { platform: 'win32' }).kill(root);
+		assert.match(log.errors[0], /needs administrator rights/);
+		assert.match(log.errors[0], /Run as administrator/);
+		assert.match(log.errors[0], /taskkill \/PID 900 \/T \/F/);
+		assert.match(log.errors[0], /never raises its own privileges/);
+	});
+
+	test('does not ask for elevation for other failures', async () => {
+		const { ui, log } = fakeUi();
+		const failed: KillResult = { status: 'failed', message: 'Process 900 is still running after SIGKILL.' };
+		await createPortActions(fakeKiller(failed).killer, ui, liveSettings(), { platform: 'linux' }).kill(root);
+		assert.doesNotMatch(log.errors[0], /sudo|administrator/);
 	});
 });
 

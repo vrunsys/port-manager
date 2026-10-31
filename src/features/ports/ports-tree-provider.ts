@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { buildPortTooltip, formatPortDescription, formatPortLabel } from './port-formatting';
-import { describeProtection, SettingsSource } from './port-settings';
+import { whyNotKillable } from './kill/kill-policy';
+import { SettingsSource } from './port-settings';
 import { PortInfo } from './port-types';
 import { PortsService } from './ports-service';
 import { CONTEXT_VALUE } from './view-constants';
@@ -46,7 +47,7 @@ export class PortsTreeProvider implements vscode.TreeDataProvider<PortItem>, vsc
 
 	getChildren(): PortItem[] {
 		const current = this.settings.get();
-		return this.service.state.ports.map(info => new PortItem(info, describeProtection(info, current)));
+		return this.service.state.ports.map(info => new PortItem(info, whyNotKillable(info, current)));
 	}
 
 	dispose(): void {

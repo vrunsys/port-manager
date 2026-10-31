@@ -1,5 +1,7 @@
 import { describeViewMessage, EMPTY_MESSAGE } from './port-formatting';
-import { DEFAULT_SETTINGS, describeProtection, SettingsSource } from './port-settings';
+import { GuardEnvironment } from './kill/kill-guards';
+import { isOwnedByAnotherUser, whyNotKillable } from './kill/kill-policy';
+import { DEFAULT_SETTINGS, SettingsSource } from './port-settings';
 import { KillResult, PortInfo } from './port-types';
 import { PortsState } from './ports-service';
 
@@ -37,7 +39,7 @@ export interface PortActions {
 }
 
 const STOP_LABEL = 'Stop Process';
-const ELEVATION_HINT = 'Try stopping it from a terminal with elevated privileges (sudo, or Run as administrator).';
+const STOP_ANYWAY_LABEL = 'Stop Anyway';
 const NONE_STOPPABLE_MESSAGE =
 	'Listening ports were found, but none can be stopped from here: their processes are hidden or protected.';
 
@@ -49,7 +51,15 @@ function describeProcess(info: PortInfo): string {
 	return `${info.processName} (PID ${info.pid})`;
 }
 
-function reportKillResult(ui: PortActionsUi, info: PortInfo, result: KillResult): void {
+/** Tells the user how to get the rights themselves; Port Manager never elevates on its own. */
+export function elevationHint(pid: number, platform: NodeJS.Platform): string {
+	const never = 'Port Manager never raises its own privileges.';
+	return platform === 'win32'
+		? `This needs administrator rights. ${never} Restart VS Code with "Run as administrator", or run "taskkill /PID ${pid} /T /F" in an elevated terminal.`
+		: `This needs elevated rights (sudo). ${never} Run "sudo kill ${pid}" in a terminal (add -9 if it ignores that).`;
+}
+
+function reportKillResult(ui: PortActionsUi, info: PortInfo, result: KillResult, platform: NodeJS.Platform): void {
 	switch (result.status) {
 		case 'killed':
 			ui.showStatus(`Stopped ${describeProcess(info)}.`);
@@ -58,7 +68,7 @@ function reportKillResult(ui: PortActionsUi, info: PortInfo, result: KillResult)
 			ui.showWarning(result.message);
 			break;
 		case 'permission-denied':
-			ui.showError(`${result.message} ${ELEVATION_HINT}`);
+			ui.showError(`${result.message} ${elevationHint(info.pid ?? 0, platform)}`);
 			break;
 		case 'failed':
 			ui.showError(result.message);
@@ -70,12 +80,19 @@ function protectedMessage(info: PortInfo, reason: string): string {
 	return `Port ${info.port} is protected (${reason}), so Port Manager will not stop it.`;
 }
 
+export interface ActionEnvironment extends GuardEnvironment {
+	/** The OS user running VS Code; without it no "another user" warning can be given. */
+	currentUser?: string;
+}
+
 /** `settings` is read at the moment of each action, so changes apply immediately. */
 export function createPortActions(
 	service: PortActionsService,
 	ui: PortActionsUi,
 	settings: Pick<SettingsSource, 'get'> = { get: () => DEFAULT_SETTINGS },
+	environment: ActionEnvironment = {},
 ): PortActions {
+	const platform = environment.platform ?? process.platform;
 	/** Turns an unexpected exception into a readable message instead of a raw command failure. */
 	const safely = async (action: () => Promise<void>): Promise<void> => {
 		try {
@@ -88,9 +105,9 @@ export function createPortActions(
 	const kill = (info: PortInfo): Promise<void> =>
 		safely(async () => {
 			const current = settings.get();
-			const protection = describeProtection(info, current);
-			if (protection) {
-				ui.showWarning(protectedMessage(info, protection));
+			const blocked = whyNotKillable(info, current, environment);
+			if (blocked) {
+				ui.showWarning(protectedMessage(info, blocked));
 				return;
 			}
 			if (info.pid === undefined) {
@@ -98,14 +115,26 @@ export function createPortActions(
 				return;
 			}
 			const pid = info.pid;
-			const detail = [`Listening on port ${info.port}.`, info.command && `Command: ${info.command}`]
+			// Another user's process is always confirmed, even when confirmations are switched off.
+			const foreign = isOwnedByAnotherUser(info, environment.currentUser);
+			const detail = [
+				foreign &&
+					`Warning: this process belongs to another user (${info.user}), not to you (${environment.currentUser}). Stopping it may disrupt that user or the system, and it will probably need elevated rights.`,
+				`Listening on port ${info.port}.`,
+				info.command && `Command: ${info.command}`,
+			]
 				.filter(Boolean)
 				.join('\n\n');
-			if (current.confirmBeforeKill && !(await ui.confirm(`Stop ${describeProcess(info)}?`, detail, STOP_LABEL))) {
-				return;
+			if (current.confirmBeforeKill || foreign) {
+				const title = foreign
+					? `Stop ${describeProcess(info)} owned by ${info.user}?`
+					: `Stop ${describeProcess(info)}?`;
+				if (!(await ui.confirm(title, detail, foreign ? STOP_ANYWAY_LABEL : STOP_LABEL))) {
+					return;
+				}
 			}
 			const result = await ui.withProgress(`Stopping ${describeProcess(info)}…`, () => service.killProcess(pid));
-			reportKillResult(ui, info, result);
+			reportKillResult(ui, info, result, platform);
 		});
 
 	const killByPort = (): Promise<void> =>
@@ -114,7 +143,9 @@ export function createPortActions(
 			await service.refresh();
 			const { ports } = service.state;
 			const current = settings.get();
-			const killable = ports.filter(info => info.pid !== undefined && !describeProtection(info, current));
+			const killable = ports.filter(
+				info => info.pid !== undefined && !whyNotKillable(info, current, environment),
+			);
 			if (killable.length === 0) {
 				ui.showWarning(ports.length > 0 ? NONE_STOPPABLE_MESSAGE : (describeViewMessage(service.state) ?? EMPTY_MESSAGE));
 				return;

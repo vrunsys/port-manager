@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as vscode from 'vscode';
 import { createPortActions, PortActions, PortActionsService, PortActionsUi } from './port-actions';
 import { formatPortDescription, formatPortLabel } from './port-formatting';
@@ -44,8 +45,17 @@ function onRow(action: (info: PortInfo) => Promise<void>) {
 	return (item?: PortItem) => (item ? action(item.info) : undefined);
 }
 
+/** os.userInfo() throws when the account has no passwd entry (some containers); then no ownership warning is possible. */
+function currentUserName(): string | undefined {
+	try {
+		return os.userInfo().username;
+	} catch {
+		return undefined;
+	}
+}
+
 export function registerPortActions(service: PortActionsService, settings: Pick<SettingsSource, 'get'>): vscode.Disposable {
-	const actions: PortActions = createPortActions(service, vscodeUi, settings);
+	const actions: PortActions = createPortActions(service, vscodeUi, settings, { currentUser: currentUserName() });
 	return vscode.Disposable.from(
 		vscode.commands.registerCommand(ITEM_COMMAND.killByPort, () => actions.killByPort()),
 		vscode.commands.registerCommand(ITEM_COMMAND.kill, onRow(actions.kill)),

@@ -6,6 +6,8 @@ All notable changes to the "port-manager" extension will be documented in this f
 
 - Sidebar view listing listening ports (port, protocol, process, PID, user) with tooltips, refresh button, and empty/error states.
 - Status bar item showing the number of listening ports; click to open the view. Hide it with `portManager.showStatusBar`.
+- Safety guards: system PIDs (0, 1, Windows 4), the extension host and its parent, and protected ports/processes are refused before any confirmation, with the reason. Processes owned by another user always get a stronger confirmation. Permission-denied results explain how to use `sudo` / administrator rights without Port Manager ever elevating itself.
+- Runs in the workspace extension host, so Remote - SSH, WSL and Dev Containers manage the remote ports (see `docs/remote-and-wsl.md`).
 - Settings, applied live without a reload: `portManager.refreshInterval`, `portManager.confirmBeforeKill`, `portManager.protectedPorts`, `portManager.protectedProcesses`, `portManager.showStatusBar`.
 - Port listing for Linux (`ss`, `lsof`, `netstat`), macOS (`lsof`) and Windows (PowerShell, `netstat`/`tasklist`).
 - Polling service that skips overlapping scans, merges IPv4/IPv6 duplicates and only notifies on real changes.

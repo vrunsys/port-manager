@@ -32,7 +32,7 @@ async function mapTaskkillFailure(run: CommandRunner, pid: number, error: unknow
 
 /** taskkill /T /F ends the whole process tree; Windows has no graceful step for console apps. */
 export async function killWindowsProcess(pid: number, run: CommandRunner = runCommand): Promise<KillResult> {
-	const refusal = checkKillable(pid);
+	const refusal = checkKillable(pid, process.pid, 'win32');
 	if (refusal) {
 		return refusal;
 	}
